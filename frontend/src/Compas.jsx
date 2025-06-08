@@ -22,7 +22,7 @@ const Compas = () => {
       // If the user is not a staff member, redirect them
       if (storedRole !== "Student1") {
         console.log("Not Compas, redirecting to login..."); // Debugging log
-        navigate("/ebona");
+        navigate("/admin");
       }
     } else {
       console.log("No user or role found, redirecting to login..."); // Debugging log

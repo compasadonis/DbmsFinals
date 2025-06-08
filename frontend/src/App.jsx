@@ -4,8 +4,7 @@ import Login from "./Login";
 import Admin from "./Admin";
 import Staff from "./Staff";
 import Compas from "./Compas";
-import Ebona from "./Ebona";
-import Laguardia from "./Laguardia";
+
 
 function App() {
   return (
@@ -27,8 +26,6 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/staff" element={<Staff />} />
             <Route path="/Compas" element={<Compas />} />
-            <Route path="/Ebona" element={<Ebona />} />
-            <Route path="/Laguardia" element={<Laguardia />} />
           </Routes>
         </div>
       </div>

@@ -9,21 +9,21 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// db connection
-
+// MySQL connection pool
 const db = mysql2.createPool({
   host: "localhost",
   user: "root",
   password: "",
-  database: "compas_db", // Updated database name
+  database: "databasenicompas",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 });
 
+// Check DB connection
 db.getConnection((err) => {
   if (err) {
-    console.log("Database connection failed", err);
+    console.error("Database connection failed", err);
   } else {
     console.log("Connected to MySQL database");
   }
@@ -32,39 +32,38 @@ db.getConnection((err) => {
 // Register
 app.post("/register", async (req, res) => {
   const { username, password, role } = req.body;
-
-  if (!username || !password) {
+  if (!username || !password || !role) {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const checkUserSql = "SELECT * FROM register WHERE username = ?";
+    db.query(checkUserSql, [username], (err, results) => {
+      if (err) return res.status(500).json({ message: "Database error" });
+      if (results.length > 0) {
+        return res.status(400).json({ message: "User already exists" });
+      }
 
-  const checkUserSql = "SELECT * FROM person WHERE username = ?";
-  db.query(checkUserSql, [username], (err, results) => {
-    if (err) return res.status(500).json({ message: "Database error" });
-
-    if (results.length > 0) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const insertUserSql = "INSERT INTO person (username, password, role) VALUES (?,?, ?)";
-    db.query(insertUserSql, [username, hashedPassword, role], (err, result) => {
-      if (err) return res.status(500).json({ message: "Registration Failed" });
-
-      res.status(201).json({ message: "User registered Successfully" });
+      const insertUserSql = "INSERT INTO register (username, password, role) VALUES (?, ?, ?)";
+      db.query(insertUserSql, [username, hashedPassword, role], (err) => {
+        if (err) return res.status(500).json({ message: "Registration failed" });
+        res.status(201).json({ message: "User registered successfully" });
+      });
     });
-  });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-// Login User
+// Login
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
-
   if (!username || !password) {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  const sql = "SELECT * FROM person WHERE username = ?";
+  const sql = "SELECT * FROM register WHERE username = ?";
   db.query(sql, [username], async (err, results) => {
     if (err || results.length === 0) {
       return res.status(400).json({ message: "Invalid username or password" });
@@ -72,30 +71,74 @@ app.post("/login", (req, res) => {
 
     const user = results[0];
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid username or password" });
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role }, // role is included in the token
+      { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // Log to confirm that role is included in the response
-    console.log("Login response:", { token, username: user.username, role: user.role });
-
-    // Send the role along with username and token in the response
-    res.json({
-      message: "Login successful",
-      token,
-      username: user.username,
-      role: user.role, // Ensure this is being sent back
-    });
+    res.json({ message: "Login successful", token, username: user.username, role: user.role });
   });
 });
 
-app.listen(5000, () => {
-  console.log("Server is running on Port 5000");
+// Sales Report Summary
+app.get("/api/reports/sales", (req, res) => {
+  const query = `
+    SELECT
+      total_sales_today,
+      total_sales_week,
+      total_sales_month,
+      number_of_orders_today,
+      number_of_orders_week
+    FROM sales_report_view
+    LIMIT 1
+  `;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching sales report", error: err });
+    res.json(results[0] || {});
+  });
+});
+
+// Inventory Report Summary
+app.get("/api/reports/inventory", (req, res) => {
+  const query = `
+    SELECT
+      total_products,
+      out_of_stocks,
+      low_stock_product,
+      most_stocked_product
+    FROM inventory_report_view
+    LIMIT 1
+  `;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching inventory report", error: err });
+    res.json(results[0] || {});
+  });
+});
+
+// Transactions Report Summary
+app.get("/api/reports/transactions", (req, res) => {
+  const query = `
+    SELECT
+      total_transactions,
+      pending_transaction,
+      completed_transaction,
+      refunded_transaction
+    FROM transaction_report_view
+    LIMIT 1
+  `;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching transaction report", error: err });
+    res.json(results[0] || {});
+  });
+});
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on Port ${PORT}`);
 });
