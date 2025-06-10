@@ -3,7 +3,7 @@ import Register from "./Register";
 import Login from "./Login";
 import Admin from "./Admin";
 import Staff from "./Staff";
-import Compas from "./Compas";
+import ProductManagement from "./ProductManagement";
 
 
 function App() {
@@ -25,7 +25,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/staff" element={<Staff />} />
-            <Route path="/Compas" element={<Compas />} />
+            <Route path="/ProductManagement" element={<ProductManagement />} />
           </Routes>
         </div>
       </div>

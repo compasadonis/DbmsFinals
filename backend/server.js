@@ -3,11 +3,16 @@ const mysql2 = require("mysql2");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const multer = require("multer");
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Multer setup for image upload (in memory)
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // MySQL connection pool
 const db = mysql2.createPool({
@@ -134,6 +139,69 @@ app.get("/api/reports/transactions", (req, res) => {
   db.query(query, (err, results) => {
     if (err) return res.status(500).json({ message: "Error fetching transaction report", error: err });
     res.json(results[0] || {});
+  });
+});
+
+// Get all products
+app.get("/api/products", (req, res) => {
+  const sql = "SELECT * FROM products";
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching products", error: err });
+
+    const formatted = results.map((product) => ({
+      ...product,
+      product_image: product.product_image
+        ? Buffer.from(product.product_image).toString("base64")
+        : null,
+    }));
+
+    res.json(formatted);
+  });
+});
+
+// Add product
+app.post("/api/products", upload.single("product_image"), (req, res) => {
+  const { name, description, price, quantity } = req.body;
+  const image = req.file ? req.file.buffer : null;
+
+  const sql =
+    "INSERT INTO products (name, description, price, quantity, product_image) VALUES (?, ?, ?, ?, ?)";
+  db.query(sql, [name, description, price, quantity, image], (err) => {
+    if (err) return res.status(500).json({ message: "Error adding product", error: err });
+    res.json({ message: "Product added successfully" });
+  });
+});
+
+// Update product
+app.put("/api/products/:id", upload.single("product_image"), (req, res) => {
+  const { name, description, price, quantity } = req.body;
+  const image = req.file ? req.file.buffer : null;
+  const { id } = req.params;
+
+  let sql, values;
+  if (image) {
+    sql =
+      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, product_image = ? WHERE product_id = ?";
+    values = [name, description, price, quantity, image, id];
+  } else {
+    sql =
+      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ? WHERE product_id = ?";
+    values = [name, description, price, quantity, id];
+  }
+
+  db.query(sql, values, (err) => {
+    if (err) return res.status(500).json({ message: "Error updating product", error: err });
+    res.json({ message: "Product updated successfully" });
+  });
+});
+
+// Delete product
+app.delete("/api/products/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = "DELETE FROM products WHERE product_id = ?";
+  db.query(sql, [id], (err) => {
+    if (err) return res.status(500).json({ message: "Error deleting product", error: err });
+    res.json({ message: "Product deleted successfully" });
   });
 });
 

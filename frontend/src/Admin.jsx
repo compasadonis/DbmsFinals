@@ -135,10 +135,22 @@ const Admin = () => {
           variant="h4"
           align="center"
           gutterBottom
-          sx={{ fontWeight: "bold", color: "#333", mb: 4 }}
+          sx={{ fontWeight: "bold", color: "#333", mb: 2 }}
         >
           Welcome, Admin {user}
         </Typography>
+
+        {/* Product Management Button BELOW Welcome */}
+        <Box display="flex" justifyContent="center" mb={4}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate("/ProductManagement")}
+            sx={{ fontWeight: 600, fontSize: "1rem", px: 4, py: 1 }}
+          >
+            Go to Product Management
+          </Button>
+        </Box>
 
         <Grid container spacing={4}>
           <Grid item xs={12}>
@@ -197,4 +209,3 @@ const Admin = () => {
 };
 
 export default Admin;
-  
