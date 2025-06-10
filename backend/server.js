@@ -161,12 +161,16 @@ app.get("/api/products", (req, res) => {
 
 // Add product
 app.post("/api/products", upload.single("product_image"), (req, res) => {
-  const { name, description, price, quantity } = req.body;
+  const { name, description, price, quantity, category_id } = req.body; // Use category_id
   const image = req.file ? req.file.buffer : null;
 
+  if (!name || !description || !price || !quantity || !category_id) {
+    return res.status(400).json({ message: "All fields including category_id are required" });
+  }
+
   const sql =
-    "INSERT INTO products (name, description, price, quantity, product_image) VALUES (?, ?, ?, ?, ?)";
-  db.query(sql, [name, description, price, quantity, image], (err) => {
+    "INSERT INTO products (name, description, price, quantity, product_image, category_id) VALUES (?, ?, ?, ?, ?, ?)";
+  db.query(sql, [name, description, price, quantity, image, category_id], (err) => {
     if (err) return res.status(500).json({ message: "Error adding product", error: err });
     res.json({ message: "Product added successfully" });
   });
@@ -174,19 +178,23 @@ app.post("/api/products", upload.single("product_image"), (req, res) => {
 
 // Update product
 app.put("/api/products/:id", upload.single("product_image"), (req, res) => {
-  const { name, description, price, quantity } = req.body;
+  const { name, description, price, quantity, category_id } = req.body; // Use category_id
   const image = req.file ? req.file.buffer : null;
   const { id } = req.params;
+
+  if (!name || !description || !price || !quantity || !category_id) {
+    return res.status(400).json({ message: "All fields including category_id are required" });
+  }
 
   let sql, values;
   if (image) {
     sql =
-      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, product_image = ? WHERE product_id = ?";
-    values = [name, description, price, quantity, image, id];
+      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, product_image = ?, category_id = ? WHERE product_id = ?";
+    values = [name, description, price, quantity, image, category_id, id];
   } else {
     sql =
-      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ? WHERE product_id = ?";
-    values = [name, description, price, quantity, id];
+      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, category_id = ? WHERE product_id = ?";
+    values = [name, description, price, quantity, category_id, id];
   }
 
   db.query(sql, values, (err) => {
@@ -195,15 +203,17 @@ app.put("/api/products/:id", upload.single("product_image"), (req, res) => {
   });
 });
 
-// Delete product
-app.delete("/api/products/:id", (req, res) => {
-  const { id } = req.params;
-  const sql = "DELETE FROM products WHERE product_id = ?";
-  db.query(sql, [id], (err) => {
-    if (err) return res.status(500).json({ message: "Error deleting product", error: err });
-    res.json({ message: "Product deleted successfully" });
+// Get all categories
+app.get("/api/category", (req, res) => {
+  const sql = "SELECT category_id, type_of_category FROM category";
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error fetching category", error: err });
+    }
+    res.json(results);
   });
 });
+
 
 // Start server
 const PORT = process.env.PORT || 5000;

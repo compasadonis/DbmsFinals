@@ -4,7 +4,8 @@ import Login from "./Login";
 import Admin from "./Admin";
 import Staff from "./Staff";
 import ProductManagement from "./ProductManagement";
-
+import HomePage from "./HomePage";
+import CustomerInfo from "./CustomerInfo";  
 
 function App() {
   return (
@@ -26,6 +27,8 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/staff" element={<Staff />} />
             <Route path="/ProductManagement" element={<ProductManagement />} />
+            <Route path="/homepage" element={<HomePage />} />
+            <Route path="/customerinfo" element={<CustomerInfo />} />
           </Routes>
         </div>
       </div>
