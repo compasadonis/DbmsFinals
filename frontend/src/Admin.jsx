@@ -27,8 +27,8 @@ const Admin = () => {
 
     if (!username || !userRole) {
       navigate("/login");
-    } else if (userRole !== "Admin") {
-      navigate("/staff");
+    } else if (userRole !== "admin") {
+      navigate("/a");
     } else {
       setUser(username);
       setRole(userRole);
@@ -78,7 +78,7 @@ const Admin = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate("/login");
+    navigate("/");
   };
 
   const handlePrint = () => {
@@ -145,7 +145,7 @@ const Admin = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={() => navigate("/ProductManagement")}
+            onClick={() => navigate("/productmanagement")}
             sx={{ fontWeight: 600, fontSize: "1rem", px: 4, py: 1 }}
           >
             Go to Product Management

@@ -12,15 +12,7 @@ function App() {
   return (
     <Router>
       <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#f5f5f5",
-          padding: "20px",
-        }}
+  
       >
         <div style={{ width: "100%", maxWidth: "500px" }}>
           <Routes>

@@ -48,8 +48,8 @@ const ProductManagement = () => {
     const username = localStorage.getItem("username");
     const role = localStorage.getItem("role");
 
-    if (!username || role !== "Admin") {
-      navigate("/login");
+    if (!username || role !== "admin") {
+      navigate("/");
     } else {
       setUser(username);
       loadProducts();
@@ -160,7 +160,7 @@ const ProductManagement = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate("/login");
+    navigate("/");
   };
 
   return (

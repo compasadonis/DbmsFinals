@@ -1,6 +1,17 @@
 import { useState } from "react";
 import axios from "axios";
-import { TextField, Button, Container, Typography, Alert } from "@mui/material";
+import {
+  TextField,
+  Button,
+  Container,
+  Typography,
+  Box,
+  AppBar,
+  Toolbar,
+  Paper,
+  Snackbar,
+  Alert,
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 const CustomerRegister = () => {
@@ -12,8 +23,7 @@ const CustomerRegister = () => {
     phone: "",
     address: "",
   });
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "" });
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -41,12 +51,9 @@ const CustomerRegister = () => {
   };
 
   const handleRegister = async () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-
     const error = validateForm();
     if (error) {
-      setErrorMessage(error);
+      setSnackbar({ open: true, message: error, severity: "warning" });
       return;
     }
 
@@ -56,131 +63,166 @@ const CustomerRegister = () => {
         formData,
         { headers: { "Content-Type": "application/json" } }
       );
-      setSuccessMessage(response.data.message || "Customer registered successfully!");
-      setTimeout(() => navigate("/HomePage"), 2000); // Redirect to login
+
+      setSnackbar({
+        open: true,
+        message: response.data.message || "Customer registered successfully!",
+        severity: "success",
+      });
+
+      setTimeout(() => navigate("/"), 2000);
     } catch (error) {
-      setErrorMessage(
-        error.response?.data?.message || "An error occurred during registration."
-      );
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "An error occurred during registration.",
+        severity: "error",
+      });
     }
   };
 
   return (
-    <Container
-      maxWidth="xs"
+    <Box
       sx={{
-        backgroundColor: "#fff",
-        border: "1px solid #d32f2f",
-        borderRadius: "8px",
-        padding: "20px",
-        marginTop: "50px",
-        boxShadow: 3,
+        backgroundColor: "#f9f9f9",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
       }}
     >
-      <Typography
-        variant="h4"
-        align="center"
-        sx={{ marginBottom: "20px", color: "#d32f2f" }}
-      >
-        Customer Register
-      </Typography>
+      {/* Header */}
+      <AppBar position="sticky" sx={{ backgroundColor: "#003580" }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1, color: "#fff" }}>
+            My Business Registration
+          </Typography>
+        </Toolbar>
+      </AppBar>
 
-      {errorMessage && (
-        <Alert severity="error" sx={{ marginBottom: "20px" }}>
-          {errorMessage}
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert severity="success" sx={{ marginBottom: "20px" }}>
-          {successMessage}
-        </Alert>
-      )}
-
-      <TextField
-        name="username"
-        label="Username"
-        fullWidth
-        margin="normal"
-        value={formData.username}
-        onChange={handleChange}
-      />
-      <TextField
-        name="password"
-        label="Password"
-        type="password"
-        fullWidth
-        margin="normal"
-        value={formData.password}
-        onChange={handleChange}
-      />
-      <TextField
-        name="full_name"
-        label="Full Name"
-        fullWidth
-        margin="normal"
-        value={formData.full_name}
-        onChange={handleChange}
-      />
-      <TextField
-        name="email"
-        label="Email"
-        type="email"
-        fullWidth
-        margin="normal"
-        value={formData.email}
-        onChange={handleChange}
-      />
-      <TextField
-        name="phone"
-        label="Phone"
-        fullWidth
-        margin="normal"
-        value={formData.phone}
-        onChange={handleChange}
-      />
-      <TextField
-        name="address"
-        label="Address"
-        fullWidth
-        margin="normal"
-        multiline
-        rows={3}
-        value={formData.address}
-        onChange={handleChange}
-      />
-
-      <Button
-        variant="contained"
-        fullWidth
-        onClick={handleRegister}
+      {/* Registration Form */}
+      <Container
+        maxWidth="sm"
         sx={{
-          backgroundColor: "#d32f2f",
-          color: "#ffffff",
-          marginTop: "20px",
-          "&:hover": { backgroundColor: "#9a0007" },
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexGrow: 1,
         }}
       >
-        Register
-      </Button>
+        <Paper
+          elevation={3}
+          sx={{
+            padding: 4,
+            width: "100%",
+            maxWidth: 400,
+            borderRadius: 2,
+          }}
+        >
+          <Typography
+            variant="h4"
+            align="center"
+            sx={{
+              color: "#003580",
+              fontWeight: "bold",
+              marginBottom: 2,
+            }}
+          >
+            Create an Account
+          </Typography>
+          <Typography
+            variant="body2"
+            align="center"
+            sx={{ color: "#555", marginBottom: 4 }}
+          >
+            Fill in the details below to register.
+          </Typography>
 
-      <Typography
-        align="center"
-        sx={{ marginTop: "20px", color: "#d32f2f", cursor: "pointer" }}
-        onClick={() => navigate("/register")}
-      >
-        Register as Admin?
-      </Typography>
+          <Box component="form" noValidate>
+            {["username", "password", "full_name", "email", "phone", "address"].map((field, index) => (
+              <TextField
+                key={index}
+                name={field}
+                label={field.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase())}
+                type={field === "password" ? "password" : "text"}
+                fullWidth
+                margin="normal"
+                value={formData[field]}
+                onChange={handleChange}
+                multiline={field === "address"}
+                rows={field === "address" ? 3 : 1}
+              />
+            ))}
+            <Button
+              fullWidth
+              variant="contained"
+              sx={{
+                backgroundColor: "#003580",
+                color: "#fff",
+                marginTop: 2,
+                "&:hover": { backgroundColor: "#00224e" },
+              }}
+              onClick={handleRegister}
+            >
+              Register
+            </Button>
+            <Button
+              fullWidth
+              variant="text"
+              sx={{
+                marginTop: 2,
+                color: "#003580",
+                textDecoration: "underline",
+              }}
+              onClick={() => navigate("/")}
+            >
+              Back to Login
+            </Button>
+            <Button
+              fullWidth
+              variant="text"
+              sx={{
+                marginTop: 2,
+                color: "#003580",
+                textDecoration: "underline",
+              }}
+              onClick={() => navigate("/register")}
+            >
+              Register as Admin?
+            </Button>
+          </Box>
+        </Paper>
+      </Container>
 
-      <Button
-        variant="text"
-        fullWidth
-        onClick={() => navigate("/")}
-        sx={{ color: "#d32f2f", marginTop: "10px" }}
+      {/* Snackbar for Notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        Back to Login
-      </Button>
-    </Container>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Footer */}
+      <Box
+        sx={{
+          backgroundColor: "#003580",
+          color: "#fff",
+          textAlign: "center",
+          padding: 2,
+        }}
+      >
+        <Typography variant="body2">
+          &copy; {new Date().getFullYear()} My Business. All rights reserved.
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 
