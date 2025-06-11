@@ -4,13 +4,17 @@ import {
   Typography,
   TextField,
   Button,
-  Container,
+  Grid,
+  Card,
   CircularProgress,
+  Alert,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const CustomerInfo = () => {
+  const navigate = useNavigate();
+
   const [customer, setCustomer] = useState({
     name: "",
     email: "",
@@ -21,8 +25,6 @@ const CustomerInfo = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     const fetchCustomerInfo = async () => {
       try {
@@ -31,7 +33,7 @@ const CustomerInfo = () => {
         setCustomer(res.data);
       } catch (err) {
         console.error("Error fetching customer info:", err);
-        setError("Failed to load customer information.");
+        setError("Failed to load customer information. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -45,8 +47,25 @@ const CustomerInfo = () => {
     setCustomer((prev) => ({ ...prev, [name]: value }));
   };
 
+  const validateInputs = () => {
+    if (!customer.name || !customer.email || !customer.phone || !customer.address) {
+      setError("All fields are required.");
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customer.email)) {
+      setError("Please enter a valid email address.");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateInputs()) return;
+
     setError("");
     setSuccess("");
     try {
@@ -55,118 +74,113 @@ const CustomerInfo = () => {
       setSuccess("Customer information updated successfully.");
     } catch (err) {
       console.error("Error updating customer info:", err);
-      setError("Failed to update customer information.");
+      setError("Failed to update customer information. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container
-      maxWidth="xs"
-      sx={{
-        backgroundColor: "#fff",
-        border: "1px solid #d32f2f",
-        borderRadius: "8px",
-        padding: "20px",
-        marginTop: "50px",
-        boxShadow: 3,
-      }}
-    >
+    <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "100vh", px: 6, py: 4 }}>
       <Typography
         variant="h4"
         align="center"
-        sx={{ marginBottom: "20px", color: "#d32f2f" }}
+        gutterBottom
+        sx={{ fontWeight: "bold", color: "black" }}
       >
-        Customer Info
+        Customer Information
       </Typography>
 
-      {error && (
-        <Typography variant="body2" color="error" sx={{ mb: 1 }}>
-          {error}
-        </Typography>
-      )}
-      {success && (
-        <Typography variant="body2" sx={{ color: "green", mb: 1 }}>
-          {success}
-        </Typography>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <TextField
-          label="Name"
-          name="name"
-          fullWidth
-          margin="normal"
-          value={customer.name}
-          onChange={handleChange}
-          required
-          InputLabelProps={{ style: { color: "#d32f2f" } }}
-        />
-
-        <TextField
-          label="Email"
-          name="email"
-          fullWidth
-          margin="normal"
-          value={customer.email}
-          onChange={handleChange}
-          required
-          InputLabelProps={{ style: { color: "#d32f2f" } }}
-        />
-
-        <TextField
-          label="Phone"
-          name="phone"
-          fullWidth
-          margin="normal"
-          value={customer.phone}
-          onChange={handleChange}
-          required
-          InputLabelProps={{ style: { color: "#d32f2f" } }}
-        />
-
-        <TextField
-          label="Address"
-          name="address"
-          fullWidth
-          margin="normal"
-          value={customer.address}
-          onChange={handleChange}
-          required
-          multiline
-          rows={3}
-          InputLabelProps={{ style: { color: "#d32f2f" } }}
-        />
-
-        <Button
-          type="submit"
-          variant="contained"
-          fullWidth
-          sx={{
-            backgroundColor: "#d32f2f",
-            color: "#ffffff",
-            marginTop: "20px",
-            "&:hover": { backgroundColor: "#9a0007" },
-          }}
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} color="inherit" /> : "Save Changes"}
+      <Box display="flex" justifyContent="center" mb={4}>
+        <Button variant="contained" color="primary" onClick={() => navigate("/HomePage")}>
+          Go to Homepage
         </Button>
-      </form>
+      </Box>
 
-      <Typography
-        align="center"
-        sx={{
-          marginTop: "20px",
-          color: "#d32f2f",
-          cursor: "pointer",
-        }}
-        onClick={() => navigate("/homepage")}
-      >
-        Go to Home Page
-      </Typography>
-    </Container>
+      <Card sx={{ p: 4, maxWidth: 800, mx: "auto" }}>
+        {loading && (
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <CircularProgress />
+          </Box>
+        )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Name"
+                name="name"
+                value={customer.name}
+                onChange={handleChange}
+                variant="outlined"
+                required
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Email"
+                name="email"
+                value={customer.email}
+                onChange={handleChange}
+                variant="outlined"
+                required
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Phone"
+                name="phone"
+                value={customer.phone}
+                onChange={handleChange}
+                variant="outlined"
+                required
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Address"
+                name="address"
+                value={customer.address}
+                onChange={handleChange}
+                variant="outlined"
+                multiline
+                rows={3}
+                required
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                fullWidth
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
+      </Card>
+    </Box>
   );
 };
 

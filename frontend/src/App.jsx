@@ -1,32 +1,38 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import Register from "./Register";
 import Login from "./Login";
+import CustomerRegister from "./CustomerRegister";
 import Admin from "./Admin";
 import Staff from "./Staff";
 import ProductManagement from "./ProductManagement";
 import HomePage from "./HomePage";
-import CustomerInfo from "./CustomerInfo";  
+import CustomerInfo from "./CustomerInfo";
+import Register from "./Register";
 
 function App() {
   return (
     <Router>
       <div
         style={{
+          minHeight: "100vh",
           display: "flex",
+          flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          minHeight: "100vh",
-          backgroundColor: "#f5f5f5", // Optional: Add a light background color
-          padding: "20px", // Optional: Add padding for smaller screens
+          backgroundColor: "#f5f5f5",
+          padding: "20px",
         }}
       >
         <div style={{ width: "100%", maxWidth: "500px" }}>
           <Routes>
-            <Route path="/" element={<Register />} />
-            <Route path="/login" element={<Login />} />
+            {/* Public Routes */}
+            <Route path="/" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/customerregister" element={<CustomerRegister />} />
+
+            {/* Authenticated Routes */}
             <Route path="/admin" element={<Admin />} />
             <Route path="/staff" element={<Staff />} />
-            <Route path="/ProductManagement" element={<ProductManagement />} />
+            <Route path="/productmanagement" element={<ProductManagement />} />
             <Route path="/homepage" element={<HomePage />} />
             <Route path="/customerinfo" element={<CustomerInfo />} />
           </Routes>

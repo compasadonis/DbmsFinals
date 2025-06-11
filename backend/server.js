@@ -213,6 +213,53 @@ app.get("/api/category", (req, res) => {
     res.json(results);
   });
 });
+// Customer Registration
+app.post("/api/register-customers", async (req, res) => {
+  const { username, password, full_name, email, phone, address } = req.body;
+
+  if (!username || !password || !full_name || !email || !phone || !address) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  try {
+    // Check if username already exists
+    const checkUserSql = "SELECT * FROM register WHERE username = ?";
+    db.query(checkUserSql, [username], async (err, results) => {
+      if (err) return res.status(500).json({ message: "Database error" });
+      if (results.length > 0) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Insert into the register table
+      const insertRegisterSql =
+        "INSERT INTO register (username, password, role) VALUES (?, ?, 'user')";
+      db.query(insertRegisterSql, [username, hashedPassword], (err, result) => {
+        if (err) return res.status(500).json({ message: "Registration failed" });
+
+        const registerId = result.insertId;
+
+        // Insert into the customers table
+        const insertCustomerSql =
+          "INSERT INTO customers (customer_id, full_name, email, phone, address) VALUES (?, ?, ?, ?, ?)";
+        db.query(
+          insertCustomerSql,
+          [registerId, full_name, email, phone, address],
+          (err) => {
+            if (err) {
+              return res.status(500).json({ message: "Failed to create customer details" });
+            }
+            res.status(201).json({ message: "Customer registered successfully!" });
+          }
+        );
+      });
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 
 // Start server

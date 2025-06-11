@@ -10,9 +10,9 @@ const Register = () => {
   const navigate = useNavigate();
 
   const handleRegister = async () => {
-    if (!username || !password) {
+    if (!username || !password || !role) {
       alert("Please fill in all fields");
-      return; 
+      return;
     }
 
     try {
@@ -22,7 +22,7 @@ const Register = () => {
         { headers: { "Content-Type": "application/json" } }
       );
       alert(response.data.message);
-      navigate("/login");
+      navigate("/");
     } catch (error) {
       alert(error.response?.data?.message || "Registration Failed");
     }
@@ -45,8 +45,9 @@ const Register = () => {
         align="center"
         sx={{ marginBottom: "20px", color: "#d32f2f" }}
       >
-        Register
+        Admin Register
       </Typography>
+
       <TextField
         label="Username"
         fullWidth
@@ -54,8 +55,8 @@ const Register = () => {
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         InputLabelProps={{ style: { color: "#d32f2f" } }}
-        sx={{ borderBottom: "1px solid #d32f2f" }}
       />
+
       <TextField
         label="Password"
         type="password"
@@ -65,6 +66,7 @@ const Register = () => {
         onChange={(e) => setPassword(e.target.value)}
         InputLabelProps={{ style: { color: "#d32f2f" } }}
       />
+
       <TextField
         label="Role"
         fullWidth
@@ -73,6 +75,7 @@ const Register = () => {
         onChange={(e) => setRole(e.target.value)}
         InputLabelProps={{ style: { color: "#d32f2f" } }}
       />
+
       <Button
         variant="contained"
         fullWidth
@@ -86,6 +89,24 @@ const Register = () => {
       >
         Register
       </Button>
+
+      <Button
+        variant="outlined"
+        fullWidth
+        onClick={() => navigate("/customerregister")}
+        sx={{
+          borderColor: "#d32f2f",
+          color: "#d32f2f",
+          marginTop: "10px",
+          "&:hover": {
+            backgroundColor: "#fbe9e7",
+            borderColor: "#b71c1c",
+          },
+        }}
+      >
+        Register a Customer
+      </Button>
+
       <Typography
         align="center"
         sx={{
@@ -93,7 +114,7 @@ const Register = () => {
           color: "#d32f2f",
           cursor: "pointer",
         }}
-        onClick={() => navigate("/login")}
+        onClick={() => navigate("/")}
       >
         Already have an account? Log in
       </Typography>

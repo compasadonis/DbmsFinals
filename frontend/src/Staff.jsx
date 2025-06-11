@@ -23,7 +23,7 @@ const Staff = () => {
       setRole(storedRole);
 
       if (storedRole !== "Staff") {
-        navigate("/compas");
+        navigate("/HomePage");
       }
     } else {
       navigate("/login");
