@@ -54,11 +54,6 @@ const HomePage = () => {
     fetchCategories();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    navigate("/");
-  };
-
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name
       .toLowerCase()
@@ -71,8 +66,9 @@ const HomePage = () => {
   return (
     <Box
       sx={{
-        backgroundColor: "#f9f9f9",
+        backgroundColor: "#f4f6f8",
         minHeight: "100vh",
+        width: "100%",
         display: "flex",
         flexDirection: "column",
       }}
@@ -81,6 +77,9 @@ const HomePage = () => {
       <AppBar position="sticky" sx={{ backgroundColor: "#003580" }}>
         <Toolbar
           sx={{
+            maxWidth: "1400px",
+            width: "100%",
+            margin: "0 auto",
             display: "flex",
             justifyContent: "space-between",
           }}
@@ -104,47 +103,61 @@ const HomePage = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Search & Filter */}
+      {/* Main Content */}
       <Container
-        maxWidth="lg"
         sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: 2,
-          py: 4,
+          maxWidth: "1400px",
+          width: "100%",
+          flexGrow: 1,
+          paddingY: 6,
         }}
       >
-        <TextField
-          variant="outlined"
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          fullWidth
-          sx={{ backgroundColor: "#fff", borderRadius: 1 }}
-        />
-        <TextField
-          select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          variant="outlined"
-          fullWidth
-          sx={{ backgroundColor: "#fff", borderRadius: 1 }}
+        {/* Search & Filter */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 3,
+            marginBottom: 4,
+            justifyContent: "center",
+          }}
         >
-          <MenuItem value="">All Categories</MenuItem>
-          {categories.map((cat) => (
-            <MenuItem key={cat.category_id} value={cat.category_id}>
-              {cat.type_of_category}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Container>
+          <TextField
+            variant="outlined"
+            placeholder="Search products..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{
+              backgroundColor: "#fff",
+              borderRadius: 1,
+              width: "40%",
+              maxWidth: "500px",
+            }}
+          />
+          <TextField
+            select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            variant="outlined"
+            sx={{
+              backgroundColor: "#fff",
+              borderRadius: 1,
+              width: "20%",
+              maxWidth: "250px",
+            }}
+          >
+            <MenuItem value="">All Categories</MenuItem>
+            {categories.map((cat) => (
+              <MenuItem key={cat.category_id} value={cat.category_id}>
+                {cat.type_of_category}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
 
-      {/* Product Grid */}
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {filteredProducts.length > 0 ? (
-          <Grid container spacing={4}>
-            {filteredProducts.map((product) => (
+        {/* Product Grid */}
+        <Grid container spacing={4}>
+          {filteredProducts.length > 0 ? (
+            filteredProducts.map((product) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={product.product_id}>
                 <Card
                   sx={{
@@ -189,9 +202,9 @@ const HomePage = () => {
                       variant="contained"
                       fullWidth
                       sx={{
-                        backgroundColor: "#1a73e8",
+                        backgroundColor: "#003580",
                         color: "#fff",
-                        "&:hover": { backgroundColor: "#165bbf" },
+                        "&:hover": { backgroundColor: "#00224e" },
                       }}
                       startIcon={<AddShoppingCartIcon />}
                     >
@@ -200,39 +213,33 @@ const HomePage = () => {
                   </CardActions>
                 </Card>
               </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Typography variant="h6" color="text.secondary" align="center">
-            No products found.
-          </Typography>
-        )}
+            ))
+          ) : (
+            <Typography
+              variant="h6"
+              color="text.secondary"
+              sx={{ textAlign: "center", width: "100%" }}
+            >
+              No products found.
+            </Typography>
+          )}
+        </Grid>
       </Container>
 
       {/* Footer */}
       <Box
+        component="footer"
         sx={{
           backgroundColor: "#003580",
           color: "#fff",
           textAlign: "center",
-          py: 2,
+          py: 3,
+          mt: 6,
         }}
       >
         <Typography variant="body2">
           &copy; {new Date().getFullYear()} My Business. All rights reserved.
         </Typography>
-        <Button
-          variant="contained"
-          onClick={handleLogout}
-          sx={{
-            backgroundColor: "#757575",
-            color: "#fff",
-            "&:hover": { backgroundColor: "#616161" },
-            mt: 2,
-          }}
-        >
-          Logout
-        </Button>
       </Box>
 
       {/* Snackbar */}

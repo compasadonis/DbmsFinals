@@ -11,25 +11,22 @@ import Register from "./Register";
 function App() {
   return (
     <Router>
-      <div
-  
-      >
-        <div style={{ width: "100%", maxWidth: "500px" }}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/customerregister" element={<CustomerRegister />} />
+      
+        {/* Inside each page/component, you can constrain width as needed */}
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/customerregister" element={<CustomerRegister />} />
 
-            {/* Authenticated Routes */}
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/staff" element={<Staff />} />
-            <Route path="/productmanagement" element={<ProductManagement />} />
-            <Route path="/homepage" element={<HomePage />} />
-            <Route path="/customerinfo" element={<CustomerInfo />} />
-          </Routes>
-        </div>
-      </div>
+          {/* Authenticated Routes */}
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/staff" element={<Staff />} />
+          <Route path="/productmanagement" element={<ProductManagement />} />
+          <Route path="/homepage" element={<HomePage />} />
+          <Route path="/customerinfo" element={<CustomerInfo />} />
+        </Routes>
+      
     </Router>
   );
 }

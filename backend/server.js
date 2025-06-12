@@ -203,6 +203,16 @@ app.put("/api/products/:id", upload.single("product_image"), (req, res) => {
   });
 });
 
+// Delete product
+app.delete("/api/products/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = "DELETE FROM products WHERE product_id = ?";
+  db.query(sql, [id], (err) => {
+    if (err) return res.status(500).json({ message: "Error deleting product", error: err });
+    res.json({ message: "Product deleted successfully" });
+  });
+});
+
 // Get all categories
 app.get("/api/category", (req, res) => {
   const sql = "SELECT category_id, type_of_category FROM category";

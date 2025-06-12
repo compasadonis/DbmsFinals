@@ -3,7 +3,6 @@ import axios from "axios";
 import {
   TextField,
   Button,
-  Container,
   Typography,
   Box,
   AppBar,
@@ -64,14 +63,13 @@ const Login = () => {
   return (
     <Box
       sx={{
-        backgroundColor: "#f9f9f9",
-        minHeight: "100vh",
+        backgroundColor: "#e8eaf6",
+        height: "100vh",
+        width: "100vw",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
       }}
     >
-      {/* Header */}
       <AppBar position="sticky" sx={{ backgroundColor: "#003580" }}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1, color: "#fff" }}>
@@ -80,38 +78,34 @@ const Login = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Login Form */}
-      <Container
-        maxWidth="sm"
+      <Box
         sx={{
+          flex: 1,
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          flexGrow: 1,
         }}
       >
         <Paper
-          elevation={3}
+          elevation={6}
           sx={{
-            padding: 4,
+            padding: 6,
             width: "100%",
-            maxWidth: 400,
-            borderRadius: 2,
+            maxWidth: 480,
+            borderRadius: 3,
+            boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
+            backgroundColor: "#fff",
           }}
         >
           <Typography
             variant="h4"
             align="center"
-            sx={{
-              color: "#003580",
-              fontWeight: "bold",
-              marginBottom: 2,
-            }}
+            sx={{ color: "#003580", fontWeight: "bold", marginBottom: 3 }}
           >
             Welcome Back
           </Typography>
           <Typography
-            variant="body2"
+            variant="body1"
             align="center"
             sx={{ color: "#555", marginBottom: 4 }}
           >
@@ -140,7 +134,9 @@ const Login = () => {
             sx={{
               backgroundColor: "#003580",
               color: "#fff",
-              marginTop: 2,
+              marginTop: 3,
+              paddingY: 1.5,
+              fontSize: "1rem",
               "&:hover": { backgroundColor: "#00224e" },
             }}
             onClick={handleLogin}
@@ -152,7 +148,7 @@ const Login = () => {
             align="center"
             sx={{
               color: "#777",
-              marginTop: 2,
+              marginTop: 3,
               cursor: "pointer",
               textDecoration: "underline",
             }}
@@ -161,9 +157,8 @@ const Login = () => {
             Don't have an account? Register here.
           </Typography>
         </Paper>
-      </Container>
+      </Box>
 
-      {/* Snackbar for Notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -179,13 +174,14 @@ const Login = () => {
         </Alert>
       </Snackbar>
 
-      {/* Footer */}
       <Box
+        component="footer"
         sx={{
           backgroundColor: "#003580",
           color: "#fff",
           textAlign: "center",
           padding: 2,
+          fontSize: "0.9rem",
         }}
       >
         <Typography variant="body2">
