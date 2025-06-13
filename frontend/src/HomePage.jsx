@@ -20,6 +20,7 @@ import {
 import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PersonIcon from "@mui/icons-material/Person";
+import LogoutIcon from "@mui/icons-material/Logout";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -30,6 +31,17 @@ const HomePage = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "" });
   const navigate = useNavigate();
+
+  // Authentication State
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const username = localStorage.getItem("username");
+
+    if (!token || !username) {
+      setSnackbar({ open: true, message: "Please log in to access the homepage.", severity: "warning" });
+      navigate("/");
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -55,13 +67,17 @@ const HomePage = () => {
   }, []);
 
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      !selectedCategory || product.category_id === selectedCategory;
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = !selectedCategory || product.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    setSnackbar({ open: true, message: "You have been logged out.", severity: "success" });
+    navigate("/");
+  };
 
   return (
     <Box
@@ -85,19 +101,20 @@ const HomePage = () => {
           }}
         >
           <Typography variant="h6" sx={{ color: "#fff", fontWeight: "bold" }}>
-            My Business
+            Welcome, {localStorage.getItem("username") || "Guest"}!
           </Typography>
           <Box>
             <IconButton sx={{ color: "#fff" }}>
-              <Badge badgeContent={2} color="error">
-                <ShoppingCartIcon />
-              </Badge>
+              
             </IconButton>
             <IconButton
               sx={{ color: "#fff" }}
-              onClick={() => navigate("/customerinfo")}
+              onClick={() => navigate("/customercart")}
             >
-              <PersonIcon />
+              <ShoppingCartIcon />
+            </IconButton>
+            <IconButton sx={{ color: "#fff" }} onClick={handleLogout}>
+              <LogoutIcon />
             </IconButton>
           </Box>
         </Toolbar>

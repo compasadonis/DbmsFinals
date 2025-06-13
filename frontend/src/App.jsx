@@ -5,7 +5,7 @@ import Admin from "./Admin";
 import Staff from "./Staff";
 import ProductManagement from "./ProductManagement";
 import HomePage from "./HomePage";
-import CustomerInfo from "./CustomerInfo";
+import CustomerCart from "./CustomerCart";
 import Register from "./Register";
 
 function App() {
@@ -24,7 +24,7 @@ function App() {
           <Route path="/staff" element={<Staff />} />
           <Route path="/productmanagement" element={<ProductManagement />} />
           <Route path="/homepage" element={<HomePage />} />
-          <Route path="/customerinfo" element={<CustomerInfo />} />
+          <Route path="/customercart" element={<CustomerCart />} />
         </Routes>
       
     </Router>
