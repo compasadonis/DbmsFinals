@@ -371,9 +371,80 @@ app.delete("/api/transactions/:transaction_id", (req, res) => {
     res.json({ message: "Transaction deleted successfully" });
   });
 });
+// Get all payments
+app.get("/api/payments", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query("SELECT * FROM payments ORDER BY payment_date DESC");
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching payments:", err);
+    res.status(500).json({ message: "Failed to fetch payments" });
+  }
+});
 
+app.post("/api/payments", (req, res) => {
+  const { order_id, payment_method, payment_status } = req.body;
+  if (!order_id || !payment_method || !payment_status) {
+    return res.status(400).json({ message: "Missing payment fields" });
+  }
 
+  const sql = "INSERT INTO payments (order_id, payment_method, payment_status, payment_date) VALUES (?, ?, ?, NOW())";
+  db.query(sql, [order_id, payment_method, payment_status], (err, result) => {
+    if (err) return res.status(500).json({ message: "Error recording payment", error: err });
+    res.status(201).json({ message: "Payment recorded", payment_id: result.insertId });
+  });
+});
 
+// Get products
+app.get("/api/products", (req, res) => {
+db.query("SELECT product_id, name, quantity FROM products", (err, result) => {
+if (err) return res.status(500).json({ error: err });
+res.json(result);
+});
+});
+
+// Reduce product quantity by a specified amount
+app.put("/api/products/reduce/:id", (req, res) => {
+  const productId = req.params.id;
+  const { quantity } = req.body; // amount to reduce
+
+  if (!quantity || quantity <= 0) {
+    return res.status(400).json({ message: "Quantity to reduce must be a positive number." });
+  }
+
+  // Update only if enough stock is available
+  db.query(
+    "UPDATE products SET quantity = quantity - ? WHERE product_id = ? AND quantity >= ?",
+    [quantity, productId, quantity],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+      if (result.affectedRows === 0) {
+        return res.status(400).json({ message: "Out of stock or insufficient quantity available." });
+      }
+      res.json({ message: "Quantity reduced successfully." });
+    }
+  );
+});
+
+app.get("/api/orders", (req, res) => {
+  const query = "SELECT order_id, customer_id, order_date, total_amount FROM orders";
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching orders:", err);
+      return res.status(500).json({
+        message: "Error fetching orders",
+        error: err.message,
+      });
+    }
+    // Convert total_amount from string to number
+    const formattedResults = results.map(order => ({
+      ...order,
+      total_amount: Number(order.total_amount)
+    }));
+    res.json(formattedResults);
+  });
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;

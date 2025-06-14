@@ -7,7 +7,8 @@ import ProductManagement from "./ProductManagement";
 import HomePage from "./HomePage";
 import CustomerCart from "./CustomerCart";
 import Register from "./Register";
-
+import Receipt from "./Receipt";
+import Testing from "./Testing"; // Import Testing component if needed
 
 function App() {
   return (
@@ -26,6 +27,9 @@ function App() {
           <Route path="/productmanagement" element={<ProductManagement />} />
           <Route path="/homepage" element={<HomePage />} />
           <Route path="/customercart" element={<CustomerCart />} />
+          <Route path="/receipt" element={<Receipt />} />
+          <Route path="/testing" element={<Testing />} />
+
         </Routes>
       
     </Router>

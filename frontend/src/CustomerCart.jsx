@@ -6,7 +6,6 @@ import {
   Card,
   CardMedia,
   CardContent,
-  CardActions,
   Container,
   Button,
   AppBar,
@@ -23,6 +22,7 @@ import {
   TableRow,
   Paper,
   Divider,
+  MenuItem,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -33,13 +33,14 @@ import { useNavigate } from "react-router-dom";
 const CustomerCart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "" });
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [updatingItem, setUpdatingItem] = useState(null);
   const navigate = useNavigate();
 
-  // Fetch cart items
   useEffect(() => {
     const fetchCartItems = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/cart/1`); // Default customer ID
+        const res = await axios.get(`http://localhost:5000/api/cart/1`);
         setCartItems(res.data);
       } catch (err) {
         console.error("Error fetching cart items:", err);
@@ -50,78 +51,64 @@ const CustomerCart = () => {
         });
       }
     };
-
     fetchCartItems();
   }, []);
 
-  // Calculate total price
   const calculateTotal = () => {
-    return cartItems.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0
-    ).toFixed(2);
+    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2);
   };
 
-  // Update quantity
   const handleQuantityChange = async (cartId, newQuantity) => {
-    if (newQuantity < 1) return;
+    const quantity = parseInt(newQuantity);
+    
+    if (isNaN(quantity) || quantity < 1 || updatingItem === cartId) return;
 
+    setUpdatingItem(cartId);
     try {
-      await axios.put(`http://localhost:5000/api/cart/${cartId}`, { quantity: newQuantity });
+      const response = await axios.put(
+        `http://localhost:5000/api/cart/update-quantity/${cartId}`,
+        { quantity },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      // Log the transaction
-      await axios.post("http://localhost:5000/api/transactions", {
-        product_id: cartItems.find(item => item.cart_id === cartId).product_id,
-        action_type: "Pending",
-        quantity: newQuantity,
-      });
-
-      setCartItems(cartItems.map(item =>
-        item.cart_id === cartId ? { ...item, quantity: newQuantity } : item
-      ));
-    } catch (err) {
-      console.error("Error updating quantity:", err);
+      if (response.status === 200) {
+        setCartItems(prevItems =>
+          prevItems.map(item =>
+            item.cart_id === cartId ? { ...item, quantity } : item
+          )
+        );
+      } else {
+        throw new Error('Failed to update quantity');
+      }
+    } catch (error) {
+      console.error("Update error:", error.response?.data || error.message);
       setSnackbar({
         open: true,
-        message: "Failed to update quantity",
+        message: error.response?.data?.message || "Failed to update quantity",
         severity: "error",
       });
+    } finally {
+      setUpdatingItem(null);
     }
   };
 
-  // Remove item from cart
-  const handleRemoveItem = async (cartId) => {
-    try {
-      await axios.delete(`http://localhost:5000/api/cart/${cartId}`);
-      setCartItems(cartItems.filter(item => item.cart_id !== cartId));
-      setSnackbar({
-        open: true,
-        message: "Item removed from cart",
-        severity: "success",
-      });
-    } catch (err) {
-      console.error("Error removing item:", err);
-      setSnackbar({
-        open: true,
-        message: "Failed to remove item",
-        severity: "error",
-      });
-    }
-  };
-
-  // Checkout
   const handlePlaceOrder = async () => {
     try {
       const orderRes = await axios.post("http://localhost:5000/api/orders", {
-        customer_id: 1, // Default customer ID
+        customer_id: 1,
         total_amount: calculateTotal(),
       });
 
-      // Add order items
+      const order_id = orderRes.data.order_id;
+
       await Promise.all(
         cartItems.map(item =>
           axios.post("http://localhost:5000/api/order-items", {
-            order_id: orderRes.data.order_id,
+            order_id,
             product_id: item.product_id,
             quantity: item.quantity,
             price: item.price,
@@ -129,27 +116,57 @@ const CustomerCart = () => {
         )
       );
 
-      // Log the transaction
-      await axios.post("http://localhost:5000/api/transactions", {
-        product_id: null, // Null for bulk order
-        action_type: "Completed",
-        quantity: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+      await Promise.all(
+        cartItems.map(item =>
+          axios.put(`http://localhost:5000/api/products/reduce/${item.product_id}`, {
+            quantity: item.quantity,
+          })
+        )
+      );
+
+      const paymentStatus = paymentMethod === "Cash" ? "Pending" : "Completed";
+
+      await axios.post("http://localhost:5000/api/payments", {
+        order_id,
+        payment_method: paymentMethod,
+        payment_status: paymentStatus,
       });
 
-      // Clear the cart
       await axios.delete(`http://localhost:5000/api/cart/clear/1`);
-      setSnackbar({
-        open: true,
-        message: "Order placed successfully!",
-        severity: "success",
+
+      navigate("/receipt", {
+        state: {
+          orderId: order_id,
+          totalAmount: calculateTotal(),
+          paymentMethod,
+          cartItems,
+        },
       });
-      setCartItems([]);
     } catch (err) {
       console.error("Error during checkout:", err);
-      setSnackbar({
-        open: true,
-        message: "Checkout failed",
-        severity: "error",
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || "Checkout failed", 
+        severity: "error" 
+      });
+    }
+  };
+
+  const handleRemoveItem = async (cartId) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/cart/${cartId}`);
+      setCartItems(cartItems.filter(item => item.cart_id !== cartId));
+      setSnackbar({ 
+        open: true, 
+        message: "Item removed from cart", 
+        severity: "success" 
+      });
+    } catch (err) {
+      console.error("Error removing item:", err);
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.message || "Failed to remove item", 
+        severity: "error" 
       });
     }
   };
@@ -157,15 +174,7 @@ const CustomerCart = () => {
   return (
     <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "100vh", width: "100%", display: "flex", flexDirection: "column" }}>
       <AppBar position="sticky" sx={{ backgroundColor: "#003580" }}>
-        <Toolbar
-          sx={{
-            maxWidth: "1400px",
-            width: "100%",
-            margin: "0 auto",
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
+        <Toolbar>
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <IconButton sx={{ color: "#fff", mr: 2 }} onClick={() => navigate("/homepage")}>
               <ArrowBackIcon />
@@ -207,12 +216,8 @@ const CustomerCart = () => {
                               sx={{ width: 80, height: 80, objectFit: "cover", mr: 2 }}
                             />
                             <Box>
-                              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                                {item.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {item.description}
-                              </Typography>
+                              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>{item.name}</Typography>
+                              <Typography variant="body2" color="text.secondary">{item.description}</Typography>
                             </Box>
                           </Box>
                         </TableCell>
@@ -221,16 +226,34 @@ const CustomerCart = () => {
                           <TextField
                             type="number"
                             value={item.quantity}
-                            onChange={(e) => handleQuantityChange(item.cart_id, parseInt(e.target.value))}
-                            inputProps={{ min: 1 }}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || parseInt(value) > 0) {
+                                handleQuantityChange(item.cart_id, value);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (e.target.value === "") {
+                                handleQuantityChange(item.cart_id, 1);
+                              }
+                            }}
+                            inputProps={{ 
+                              min: 1,
+                              step: 1
+                            }}
                             sx={{ width: 70 }}
+                            disabled={updatingItem === item.cart_id}
                           />
                         </TableCell>
                         <TableCell align="center" sx={{ fontWeight: "bold" }}>
                           ₱{(item.price * item.quantity).toFixed(2)}
                         </TableCell>
                         <TableCell align="center">
-                          <IconButton color="error" onClick={() => handleRemoveItem(item.cart_id)}>
+                          <IconButton 
+                            color="error" 
+                            onClick={() => handleRemoveItem(item.cart_id)}
+                            disabled={updatingItem === item.cart_id}
+                          >
                             <DeleteIcon />
                           </IconButton>
                         </TableCell>
@@ -246,43 +269,46 @@ const CustomerCart = () => {
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>CHECK OUT</Typography>
                   <Divider sx={{ my: 2 }} />
-
+                  <TextField
+                    select
+                    label="Payment Method"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    fullWidth
+                    sx={{ mb: 2 }}
+                  >
+                    {["Cash", "Credit Card", "Debit Card", "GCash", "PayMaya", "Bank Transfer", "PayPal", "Other"].map((method) => (
+                      <MenuItem key={method} value={method}>{method}</MenuItem>
+                    ))}
+                  </TextField>
                   <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
                     <Typography>Subtotal:</Typography>
                     <Typography>₱{calculateTotal()}</Typography>
                   </Box>
-
                   <Divider sx={{ my: 2 }} />
                   <Button
                     variant="contained"
                     fullWidth
                     size="large"
                     startIcon={<ShoppingCartCheckoutIcon />}
-                    sx={{
-                      backgroundColor: "#003580",
-                      color: "#fff",
-                      py: 1.5,
+                    sx={{ 
+                      backgroundColor: "#003580", 
+                      color: "#fff", 
+                      py: 1.5, 
                       "&:hover": { backgroundColor: "#00224e" },
+                      "&:disabled": { backgroundColor: "#cccccc" }
                     }}
                     onClick={handlePlaceOrder}
+                    disabled={cartItems.length === 0 || updatingItem !== null}
                   >
-                    PLACE ORDER
+                    {updatingItem ? "PROCESSING..." : "PLACE ORDER"}
                   </Button>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
         ) : (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "60vh",
-              textAlign: "center",
-            }}
-          >
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", textAlign: "center" }}>
             <ShoppingCartCheckoutIcon sx={{ fontSize: 80, color: "text.secondary", mb: 2 }} />
             <Typography variant="h5" sx={{ fontWeight: "bold", color: "text.secondary", mb: 1 }}>
               Your cart is empty
@@ -292,11 +318,7 @@ const CustomerCart = () => {
             </Typography>
             <Button
               variant="contained"
-              sx={{
-                backgroundColor: "#003580",
-                color: "#fff",
-                "&:hover": { backgroundColor: "#00224e" },
-              }}
+              sx={{ backgroundColor: "#003580", color: "#fff", "&:hover": { backgroundColor: "#00224e" } }}
               onClick={() => navigate("/homepage")}
             >
               CONTINUE SHOPPING
@@ -307,11 +329,15 @@ const CustomerCart = () => {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert 
+          severity={snackbar.severity} 
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
