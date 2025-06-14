@@ -12,14 +12,14 @@ app.use(cors());
 
 // Multer setup for image upload (in memory)
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 // MySQL connection pool
 const db = mysql2.createPool({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "databasenicompas",
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || "",
+  database: process.env.DB_NAME || "databasenicompas",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -27,36 +27,34 @@ const db = mysql2.createPool({
 
 // Check DB connection
 db.getConnection((err) => {
-  if (err) {
-    console.error("Database connection failed", err);
-  } else {
-    console.log("Connected to MySQL database");
-  }
+  if (err) console.error("Database connection failed", err);
+  else console.log("Connected to MySQL database");
 });
+
+// ---- Authentication Endpoints ----
 
 // Register
 app.post("/register", async (req, res) => {
   const { username, password, role } = req.body;
-  if (!username || !password || !role) {
+  if (!username || !password || !role)
     return res.status(400).json({ message: "All fields are required" });
-  }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const checkUserSql = "SELECT * FROM register WHERE username = ?";
     db.query(checkUserSql, [username], (err, results) => {
       if (err) return res.status(500).json({ message: "Database error" });
-      if (results.length > 0) {
+      if (results.length)
         return res.status(400).json({ message: "User already exists" });
-      }
 
-      const insertUserSql = "INSERT INTO register (username, password, role) VALUES (?, ?, ?)";
+      const insertUserSql =
+        "INSERT INTO register (username, password, role) VALUES (?, ?, ?)";
       db.query(insertUserSql, [username, hashedPassword, role], (err) => {
         if (err) return res.status(500).json({ message: "Registration failed" });
         res.status(201).json({ message: "User registered successfully" });
       });
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -64,21 +62,18 @@ app.post("/register", async (req, res) => {
 // Login
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
+  if (!username || !password)
     return res.status(400).json({ message: "All fields are required" });
-  }
 
   const sql = "SELECT * FROM register WHERE username = ?";
   db.query(sql, [username], async (err, results) => {
-    if (err || results.length === 0) {
+    if (err || !results.length)
       return res.status(400).json({ message: "Invalid username or password" });
-    }
 
     const user = results[0];
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch)
       return res.status(400).json({ message: "Invalid username or password" });
-    }
 
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
@@ -90,87 +85,68 @@ app.post("/login", (req, res) => {
   });
 });
 
-// Sales Report Summary
+// ---- Report Endpoints ----
+
+// Sales Report
 app.get("/api/reports/sales", (req, res) => {
-  const query = `
-    SELECT
-      total_sales_today,
-      total_sales_week,
-      total_sales_month,
-      number_of_orders_today,
-      number_of_orders_week
-    FROM sales_report_view
-    LIMIT 1
-  `;
-  db.query(query, (err, results) => {
+  const q = `SELECT total_sales_today, total_sales_week, total_sales_month, number_of_orders_today, number_of_orders_week FROM sales_report_view LIMIT 1`;
+  db.query(q, (err, results) => {
     if (err) return res.status(500).json({ message: "Error fetching sales report", error: err });
     res.json(results[0] || {});
   });
 });
 
-// Inventory Report Summary
+// Inventory Report
 app.get("/api/reports/inventory", (req, res) => {
-  const query = `
-    SELECT
-      total_products,
-      out_of_stocks,
-      low_stock_product,
-      most_stocked_product
-    FROM inventory_report_view
-    LIMIT 1
-  `;
-  db.query(query, (err, results) => {
+  const q = `SELECT total_products, out_of_stocks, low_stock_product, most_stocked_product FROM inventory_report_view LIMIT 1`;
+  db.query(q, (err, results) => {
     if (err) return res.status(500).json({ message: "Error fetching inventory report", error: err });
     res.json(results[0] || {});
   });
 });
 
-// Transactions Report Summary
+// Transactions Report
 app.get("/api/reports/transactions", (req, res) => {
-  const query = `
-    SELECT
-      total_transactions,
-      pending_transaction,
-      completed_transaction,
-      refunded_transaction
-    FROM transaction_report_view
-    LIMIT 1
-  `;
-  db.query(query, (err, results) => {
+  const q = `SELECT total_transactions, pending_transaction, completed_transaction, refunded_transaction FROM transaction_report_view LIMIT 1`;
+  db.query(q, (err, results) => {
     if (err) return res.status(500).json({ message: "Error fetching transaction report", error: err });
     res.json(results[0] || {});
   });
 });
+
+// ---- Category Endpoints ----
+app.get("/api/category", (req, res) => {
+  const sql = "SELECT category_id, type_of_category FROM category";
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching category", error: err });
+    res.json(results);
+  });
+});
+
+// ---- Product Endpoints ----
 
 // Get all products
 app.get("/api/products", (req, res) => {
   const sql = "SELECT * FROM products";
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ message: "Error fetching products", error: err });
-
-    const formatted = results.map((product) => ({
-      ...product,
-      product_image: product.product_image
-        ? Buffer.from(product.product_image).toString("base64")
-        : null,
+    const formatted = results.map(p => ({
+      ...p,
+      product_image: p.product_image ? Buffer.from(p.product_image).toString("base64") : null
     }));
-
     res.json(formatted);
   });
 });
 
 // Add product
 app.post("/api/products", upload.single("product_image"), (req, res) => {
-  const { name, description, price, quantity, category_id } = req.body; // Use category_id
+  const { name, description, price, quantity, category_id } = req.body;
   const image = req.file ? req.file.buffer : null;
-
-  if (!name || !description || !price || !quantity || !category_id) {
+  if (!name || !description || !price || !quantity || !category_id)
     return res.status(400).json({ message: "All fields including category_id are required" });
-  }
 
-  const sql =
-    "INSERT INTO products (name, description, price, quantity, product_image, category_id) VALUES (?, ?, ?, ?, ?, ?)";
-  db.query(sql, [name, description, price, quantity, image, category_id], (err) => {
+  const sql = "INSERT INTO products (name, description, price, quantity, product_image, category_id) VALUES (?, ?, ?, ?, ?, ?)";
+  db.query(sql, [name, description, price, quantity, image, category_id], err => {
     if (err) return res.status(500).json({ message: "Error adding product", error: err });
     res.json({ message: "Product added successfully" });
   });
@@ -178,26 +154,21 @@ app.post("/api/products", upload.single("product_image"), (req, res) => {
 
 // Update product
 app.put("/api/products/:id", upload.single("product_image"), (req, res) => {
-  const { name, description, price, quantity, category_id } = req.body; // Use category_id
+  const { name, description, price, quantity, category_id } = req.body;
   const image = req.file ? req.file.buffer : null;
   const { id } = req.params;
-
-  if (!name || !description || !price || !quantity || !category_id) {
+  if (!name || !description || !price || !quantity || !category_id)
     return res.status(400).json({ message: "All fields including category_id are required" });
-  }
 
-  let sql, values;
+  let sql, vals;
   if (image) {
-    sql =
-      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, product_image = ?, category_id = ? WHERE product_id = ?";
-    values = [name, description, price, quantity, image, category_id, id];
+    sql = "UPDATE products SET name=?, description=?, price=?, quantity=?, product_image=?, category_id=? WHERE product_id=?";
+    vals = [name, description, price, quantity, image, category_id, id];
   } else {
-    sql =
-      "UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, category_id = ? WHERE product_id = ?";
-    values = [name, description, price, quantity, category_id, id];
+    sql = "UPDATE products SET name=?, description=?, price=?, quantity=?, category_id=? WHERE product_id=?";
+    vals = [name, description, price, quantity, category_id, id];
   }
-
-  db.query(sql, values, (err) => {
+  db.query(sql, vals, err => {
     if (err) return res.status(500).json({ message: "Error updating product", error: err });
     res.json({ message: "Product updated successfully" });
   });
@@ -205,75 +176,205 @@ app.put("/api/products/:id", upload.single("product_image"), (req, res) => {
 
 // Delete product
 app.delete("/api/products/:id", (req, res) => {
-  const { id } = req.params;
-  const sql = "DELETE FROM products WHERE product_id = ?";
-  db.query(sql, [id], (err) => {
+  db.query("DELETE FROM products WHERE product_id = ?", [req.params.id], err => {
     if (err) return res.status(500).json({ message: "Error deleting product", error: err });
     res.json({ message: "Product deleted successfully" });
   });
 });
 
-// Get all categories
-app.get("/api/category", (req, res) => {
-  const sql = "SELECT category_id, type_of_category FROM category";
-  db.query(sql, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Error fetching category", error: err });
-    }
-    res.json(results);
-  });
-});
-// Customer Registration
+// ---- Customer Registration ----
 app.post("/api/register-customers", async (req, res) => {
   const { username, password, full_name, email, phone, address } = req.body;
-
-  if (!username || !password || !full_name || !email || !phone || !address) {
+  if (!username || !password || !full_name || !email || !phone || !address)
     return res.status(400).json({ message: "All fields are required" });
-  }
-
   try {
-    // Check if username already exists
     const checkUserSql = "SELECT * FROM register WHERE username = ?";
     db.query(checkUserSql, [username], async (err, results) => {
       if (err) return res.status(500).json({ message: "Database error" });
-      if (results.length > 0) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
+      if (results.length) return res.status(400).json({ message: "Username already exists" });
 
-      // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Insert into the register table
-      const insertRegisterSql =
-        "INSERT INTO register (username, password, role) VALUES (?, ?, 'user')";
-      db.query(insertRegisterSql, [username, hashedPassword], (err, result) => {
+      db.query("INSERT INTO register (username, password, role) VALUES (?, ?, 'user')", [username, hashedPassword], (err, regRes) => {
         if (err) return res.status(500).json({ message: "Registration failed" });
-
-        const registerId = result.insertId;
-
-        // Insert into the customers table
-        const insertCustomerSql =
-          "INSERT INTO customers (customer_id, full_name, email, phone, address) VALUES (?, ?, ?, ?, ?)";
         db.query(
-          insertCustomerSql,
-          [registerId, full_name, email, phone, address],
-          (err) => {
-            if (err) {
-              return res.status(500).json({ message: "Failed to create customer details" });
-            }
+          "INSERT INTO customers (customer_id, full_name, email, phone, address) VALUES (?, ?, ?, ?, ?)",
+          [regRes.insertId, full_name, email, phone, address], err => {
+            if (err) return res.status(500).json({ message: "Failed to create customer details" });
             res.status(201).json({ message: "Customer registered successfully!" });
           }
         );
       });
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// ---- Cart Endpoints ----
+
+// Add to cart
+app.post("/api/cart", (req, res) => {
+  let { customer_id, product_id, quantity } = req.body;
+  customer_id = customer_id || 1;
+  if (!product_id || !quantity)
+    return res.status(400).json({ message: "Product ID and quantity are required" });
+
+  db.query("SELECT 1 FROM products WHERE product_id=?", [product_id], (err, prodResults) => {
+    if (err) return res.status(500).json({ message: "Database error" });
+    if (!prodResults.length) return res.status(404).json({ message: "Product not found" });
+
+    db.query(
+      "SELECT * FROM cart WHERE customer_id=? AND product_id=?", [customer_id, product_id],
+      (err, cartResults) => {
+        if (err) return res.status(500).json({ message: "Database error" });
+        if (cartResults.length) {
+          const newQty = cartResults[0].quantity + quantity;
+          db.query("UPDATE cart SET quantity=? WHERE cart_id=?", [newQty, cartResults[0].cart_id], err => {
+            if (err) return res.status(500).json({ message: "Error updating cart" });
+            res.json({ message: "Cart quantity updated successfully" });
+          });
+        } else {
+          db.query("INSERT INTO cart (customer_id, product_id, quantity) VALUES (?, ?, ?)", [customer_id, product_id, quantity], err => {
+            if (err) return res.status(500).json({ message: "Error adding to cart" });
+            res.status(201).json({ message: "Product added to cart successfully" });
+          });
+        }
+      }
+    );
+  });
+});
+
+// Get cart items
+app.get("/api/cart/:customer_id", (req, res) => {
+  const cid = req.params.customer_id || 1;
+  const sql = `
+    SELECT c.cart_id, c.quantity, p.product_id, p.name, p.description, p.price, p.product_image
+    FROM cart c JOIN products p ON c.product_id = p.product_id WHERE c.customer_id = ?
+  `;
+  db.query(sql, [cid], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching cart items", error: err });
+    const formatted = results.map(i => ({
+      ...i,
+      product_image: i.product_image ? Buffer.from(i.product_image).toString("base64") : null
+    }));
+    res.json(formatted);
+  });
+});
+
+// Update cart item
+app.put("/api/cart/:cart_id", (req, res) => {
+  const { cart_id } = req.params;
+  const { quantity } = req.body;
+  if (!quantity || quantity < 1)
+    return res.status(400).json({ message: "Valid quantity is required" });
+  db.query("UPDATE cart SET quantity=? WHERE cart_id=?", [quantity, cart_id], err => {
+    if (err) return res.status(500).json({ message: "Error updating cart item", error: err });
+    res.json({ message: "Cart item updated successfully" });
+  });
+});
+
+// Remove item
+app.delete("/api/cart/:cart_id", (req, res) => {
+  db.query("DELETE FROM cart WHERE cart_id=?", [req.params.cart_id], err => {
+    if (err) return res.status(500).json({ message: "Error removing item from cart", error: err });
+    res.json({ message: "Item removed from cart successfully" });
+  });
+});
+
+// Clear cart
+app.delete("/api/cart/clear/:customer_id", (req, res) => {
+  const cid = req.params.customer_id || 1;
+  db.query("DELETE FROM cart WHERE customer_id=?", [cid], err => {
+    if (err) return res.status(500).json({ message: "Error clearing cart", error: err });
+    res.json({ message: "Cart cleared successfully" });
+  });
+});
+
+// ---- Checkout Endpoint ----
+app.post("/api/orders", (req, res) => {
+  const { customer_id, total_amount } = req.body;
+  db.query(
+    "INSERT INTO orders (customer_id, order_date, total_amount) VALUES (?, NOW(), ?)",
+    [customer_id, total_amount], (err, orderRes) => {
+      if (err) return res.status(500).json({ message: "Error creating order", error: err });
+      res.json({ order_id: orderRes.insertId });
+    }
+  );
+});
+
+app.post("/api/order-items", (req, res) => {
+  const { order_id, product_id, quantity, price } = req.body;
+  db.query(
+    "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)",
+    [order_id, product_id, quantity, price], err => {
+      if (err) return res.status(500).json({ message: "Error adding order item", error: err });
+      res.json({ message: "Order item added successfully" });
+    }
+  );
+});
+
+// ---- Transactions Endpoints ----
+
+// Add a transaction
+app.post("/api/transactions", (req, res) => {
+  const { product_id, action_type, quantity } = req.body;
+  if (!action_type || (action_type !== "Completed" && action_type !== "Pending" && action_type !== "Refunded")) {
+    return res.status(400).json({ message: "Invalid action type" });
+  }
+
+  if (!quantity || quantity < 1) {
+    return res.status(400).json({ message: "Valid quantity is required" });
+  }
+
+  const sql = "INSERT INTO transactions (product_id, action_type, quantity, transaction_date) VALUES (?, ?, ?, NOW())";
+  db.query(sql, [product_id, action_type, quantity], (err, result) => {
+    if (err) return res.status(500).json({ message: "Error logging transaction", error: err });
+    res.status(201).json({ message: "Transaction logged successfully", transaction_id: result.insertId });
+  });
+});
+
+// Get all transactions
+app.get("/api/transactions", (req, res) => {
+  const sql = "SELECT * FROM transactions";
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching transactions", error: err });
+    res.json(results);
+  });
+});
+
+// Get transactions by product
+app.get("/api/transactions/product/:product_id", (req, res) => {
+  const { product_id } = req.params;
+  const sql = "SELECT * FROM transactions WHERE product_id = ?";
+  db.query(sql, [product_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching product transactions", error: err });
+    res.json(results);
+  });
+});
+
+// Get transactions by action type
+app.get("/api/transactions/type/:action_type", (req, res) => {
+  const { action_type } = req.params;
+  const sql = "SELECT * FROM transactions WHERE action_type = ?";
+  db.query(sql, [action_type], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching transactions by type", error: err });
+    res.json(results);
+  });
+});
+
+// Delete a transaction
+app.delete("/api/transactions/:transaction_id", (req, res) => {
+  const { transaction_id } = req.params;
+  const sql = "DELETE FROM transactions WHERE transaction_id = ?";
+  db.query(sql, [transaction_id], (err) => {
+    if (err) return res.status(500).json({ message: "Error deleting transaction", error: err });
+    res.json({ message: "Transaction deleted successfully" });
+  });
+});
+
+
+
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on Port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

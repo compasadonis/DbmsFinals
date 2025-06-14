@@ -22,6 +22,8 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
+  Divider,
+  CircularProgress,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -34,6 +36,7 @@ const ProductManagement = () => {
   const [categories, setCategories] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentProduct, setCurrentProduct] = useState({
     product_id: null,
     name: "",
@@ -63,6 +66,8 @@ const ProductManagement = () => {
       setProducts(res.data);
     } catch (err) {
       console.error("Error loading products:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -134,11 +139,9 @@ const ProductManagement = () => {
           { headers: { "Content-Type": "multipart/form-data" } }
         );
       } else {
-        await axios.post(
-          "http://localhost:5000/api/products",
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
+        await axios.post("http://localhost:5000/api/products", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
 
       setOpenDialog(false);
@@ -158,106 +161,228 @@ const ProductManagement = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/");
-  };
+  const renderCard = (title, children) => (
+    <Card
+      elevation={3}
+      sx={{
+        mb: 4,
+        borderRadius: 3,
+        px: 4,
+        py: 3,
+        backgroundColor: "#fff",
+      }}
+    >
+      <Typography
+        variant="h6"
+        color="primary"
+        gutterBottom
+        sx={{ fontWeight: "bold" }}
+      >
+        {title}
+      </Typography>
+      <Divider sx={{ mb: 2 }} />
+      {children}
+    </Card>
+  );
 
   return (
-    <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "100vh", px: 6, py: 4 }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ fontWeight: "bold", color: "black" }}>
-  Welcome, Admin {user}
-</Typography>
+    <Box
+      sx={{
+        backgroundColor: "#f4f6f8",
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        px: 2,
+      }}
+    >
+      <Paper
+        elevation={4}
+        sx={{
+          maxWidth: 1200,
+          width: "100%",
+          p: 4,
+          borderRadius: 3,
+        }}
+      >
+        <Typography
+          variant="h4"
+          align="center"
+          gutterBottom
+          sx={{ fontWeight: "bold", color: "#003580", mb: 4 }}
+        >
+          Product Management
+        </Typography>
 
-
-      <Box display="flex" justifyContent="center" mb={4}>
-        <Button variant="contained" color="primary" onClick={() => navigate("/admin")}>
-          Back to Admin Dashboard
-        </Button>
-      </Box>
-
-      <Card sx={{ p: 3 }}>
-        <Box display="flex" justifyContent="space-between" mb={2}>
-          <Typography variant="h6">Product Management</Typography>
-          <Button variant="contained" onClick={handleAddProduct}>Add Product</Button>
+        <Box display="flex" justifyContent="center" mb={4}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate("/admin")}
+            sx={{ fontWeight: "bold", fontSize: "1rem", px: 4, py: 1 }}
+          >
+            Back to Admin Dashboard
+          </Button>
         </Box>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead sx={{ backgroundColor: "#1976d2" }}>
-              <TableRow>
-                <TableCell sx={{ color: "white" }}>#</TableCell>
-                <TableCell sx={{ color: "white" }}>Image</TableCell>
-                <TableCell sx={{ color: "white" }}>Name</TableCell>
-                <TableCell sx={{ color: "white" }}>Description</TableCell>
-                <TableCell sx={{ color: "white" }}>Price</TableCell>
-                <TableCell sx={{ color: "white" }}>Quantity</TableCell>
-                <TableCell sx={{ color: "white" }}>Category</TableCell>
-                <TableCell sx={{ color: "white" }}>Action</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {products.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">No products found.</TableCell>
-                </TableRow>
-              ) : (
-                products.map((p) => {
-                  const category = categories.find(c => c.category_id === p.category_id);
-                  return (
-                    <TableRow key={p.product_id}>
-                      <TableCell>{p.product_id}</TableCell>
-                      <TableCell>
-                        {p.product_image ? (
-                          <img
-                            src={`data:image/jpeg;base64,${p.product_image}`}
-                            alt={p.name}
-                            width={50}
-                            height={50}
-                            style={{ objectFit: "cover", borderRadius: 4 }}
-                          />
-                        ) : "No Image"}
-                      </TableCell>
-                      <TableCell>{p.name}</TableCell>
-                      <TableCell>{p.description}</TableCell>
-                      <TableCell>{parseFloat(p.price).toFixed(2)}</TableCell>
-                      <TableCell>{p.quantity}</TableCell>
-                      <TableCell>{category?.type_of_category || "–"}</TableCell>
-                      <TableCell>
-                        <IconButton color="primary" onClick={() => handleEditProduct(p)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton color="error" onClick={() => handleDeleteProduct(p.product_id)}>
-                          <DeleteIcon />
-                        </IconButton>
+        {loading ? (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "50vh",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          renderCard("Products List", (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>#</TableCell>
+                    <TableCell>Image</TableCell>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Description</TableCell>
+                    <TableCell>Price</TableCell>
+                    <TableCell>Quantity</TableCell>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {products.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center">
+                        No products found.
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+                  ) : (
+                    products.map((product) => {
+                      const category = categories.find(
+                        (cat) => cat.category_id === product.category_id
+                      );
+                      return (
+                        <TableRow key={product.product_id}>
+                          <TableCell>{product.product_id}</TableCell>
+                          <TableCell>
+                            {product.product_image ? (
+                              <img
+                                src={`data:image/jpeg;base64,${product.product_image}`}
+                                alt={product.name}
+                                width={50}
+                                height={50}
+                                style={{ objectFit: "cover", borderRadius: 4 }}
+                              />
+                            ) : (
+                              "No Image"
+                            )}
+                          </TableCell>
+                          <TableCell>{product.name}</TableCell>
+                          <TableCell>{product.description}</TableCell>
+                          <TableCell>{product.price}</TableCell>
+                          <TableCell>{product.quantity}</TableCell>
+                          <TableCell>{category?.type_of_category || "N/A"}</TableCell>
+                          <TableCell>
+                            <IconButton
+                              color="primary"
+                              onClick={() => handleEditProduct(product)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteProduct(product.product_id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ))
+        )}
 
-      <Button variant="contained" color="error" fullWidth sx={{ mt: 4 }} onClick={handleLogout}>
-        Logout
-      </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          onClick={handleAddProduct}
+          sx={{ mt: 4, fontWeight: "bold", py: 1.5, fontSize: "1rem" }}
+        >
+          Add New Product
+        </Button>
+
+        <Button
+          variant="contained"
+          color="error"
+          fullWidth
+          sx={{ mt: 2, fontWeight: "bold", py: 1.5, fontSize: "1rem" }}
+          onClick={() => {
+            localStorage.clear();
+            navigate("/");
+          }}
+        >
+          Logout
+        </Button>
+      </Paper>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{isEditMode ? "Edit Product" : "Add Product"}</DialogTitle>
         <DialogContent dividers>
-          <TextField label="Name" name="name" fullWidth margin="normal" value={currentProduct.name} onChange={handleChange} />
-          <TextField label="Description" name="description" fullWidth margin="normal" multiline rows={3} value={currentProduct.description} onChange={handleChange} />
-          <TextField label="Price" name="price" type="number" fullWidth margin="normal" value={currentProduct.price} onChange={handleChange} />
-          <TextField label="Quantity" name="quantity" type="number" fullWidth margin="normal" value={currentProduct.quantity} onChange={handleChange} />
+          <TextField
+            label="Name"
+            name="name"
+            fullWidth
+            margin="normal"
+            value={currentProduct.name}
+            onChange={handleChange}
+          />
+          <TextField
+            label="Description"
+            name="description"
+            fullWidth
+            margin="normal"
+            multiline
+            rows={3}
+            value={currentProduct.description}
+            onChange={handleChange}
+          />
+          <TextField
+            label="Price"
+            name="price"
+            type="number"
+            fullWidth
+            margin="normal"
+            value={currentProduct.price}
+            onChange={handleChange}
+          />
+          <TextField
+            label="Quantity"
+            name="quantity"
+            type="number"
+            fullWidth
+            margin="normal"
+            value={currentProduct.quantity}
+            onChange={handleChange}
+          />
 
           <FormControl fullWidth margin="normal">
             <InputLabel>Category</InputLabel>
-            <Select name="category_id" value={currentProduct.category_id} onChange={handleChange}>
-              {categories.map(c => (
-                <MenuItem key={c.category_id} value={c.category_id}>
-                  {c.type_of_category}
+            <Select
+              name="category_id"
+              value={currentProduct.category_id}
+              onChange={handleChange}
+            >
+              {categories.map((category) => (
+                <MenuItem key={category.category_id} value={category.category_id}>
+                  {category.type_of_category}
                 </MenuItem>
               ))}
             </Select>
@@ -265,7 +390,12 @@ const ProductManagement = () => {
 
           <Button variant="outlined" component="label" sx={{ mt: 2 }}>
             Upload Image
-            <input type="file" hidden accept="image/*" onChange={handleImageChange} />
+            <input
+              type="file"
+              hidden
+              accept="image/*"
+              onChange={handleImageChange}
+            />
           </Button>
           {currentProduct.product_image && (
             <Typography variant="body2" sx={{ mt: 1 }}>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import axios from "axios";
 import {
@@ -47,8 +46,11 @@ const Login = () => {
         severity: "success",
       });
 
+      // Redirect based on role
       if (response.data.role === "admin") {
         navigate("/admin");
+      } else if (response.data.role === "staff") {
+        navigate("/staff");
       } else if (response.data.role === "user") {
         navigate("/homepage");
       }

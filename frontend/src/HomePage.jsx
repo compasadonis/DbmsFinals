@@ -9,7 +9,6 @@ import {
   TextField,
   MenuItem,
   Container,
-  Badge,
   Button,
   AppBar,
   Toolbar,
@@ -19,7 +18,6 @@ import {
 } from "@mui/material";
 import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -30,18 +28,8 @@ const HomePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "" });
+
   const navigate = useNavigate();
-
-  // Authentication State
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const username = localStorage.getItem("username");
-
-    if (!token || !username) {
-      setSnackbar({ open: true, message: "Please log in to access the homepage.", severity: "warning" });
-      navigate("/");
-    }
-  }, [navigate]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -66,6 +54,38 @@ const HomePage = () => {
     fetchCategories();
   }, []);
 
+  const handleAddToCart = async (product) => {
+    if (product.quantity <= 0) {
+      setSnackbar({
+        open: true,
+        message: "This product is out of stock.",
+        severity: "warning",
+      });
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:5000/api/cart", {
+        customer_id: 1,
+        product_id: product.product_id,
+        quantity: 1,
+      });
+
+      setSnackbar({
+        open: true,
+        message: "Product added to cart!",
+        severity: "success",
+      });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      setSnackbar({
+        open: true,
+        message: "Failed to add product to cart",
+        severity: "error",
+      });
+    }
+  };
+
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !selectedCategory || product.category_id === selectedCategory;
@@ -73,9 +93,7 @@ const HomePage = () => {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    setSnackbar({ open: true, message: "You have been logged out.", severity: "success" });
+    setSnackbar({ open: true, message: "Logged out (dummy behavior).", severity: "info" });
     navigate("/");
   };
 
@@ -101,16 +119,10 @@ const HomePage = () => {
           }}
         >
           <Typography variant="h6" sx={{ color: "#fff", fontWeight: "bold" }}>
-            Welcome, {localStorage.getItem("username") || "Guest"}!
+            DEPARTMENT STORE
           </Typography>
           <Box>
-            <IconButton sx={{ color: "#fff" }}>
-              
-            </IconButton>
-            <IconButton
-              sx={{ color: "#fff" }}
-              onClick={() => navigate("/customercart")}
-            >
+            <IconButton sx={{ color: "#fff" }} onClick={() => navigate("/customercart")}>
               <ShoppingCartIcon />
             </IconButton>
             <IconButton sx={{ color: "#fff" }} onClick={handleLogout}>
@@ -121,46 +133,22 @@ const HomePage = () => {
       </AppBar>
 
       {/* Main Content */}
-      <Container
-        sx={{
-          maxWidth: "1400px",
-          width: "100%",
-          flexGrow: 1,
-          paddingY: 6,
-        }}
-      >
+      <Container sx={{ maxWidth: "1400px", width: "100%", flexGrow: 1, paddingY: 6 }}>
         {/* Search & Filter */}
-        <Box
-          sx={{
-            display: "flex",
-            gap: 3,
-            marginBottom: 4,
-            justifyContent: "center",
-          }}
-        >
+        <Box sx={{ display: "flex", gap: 3, marginBottom: 4, justifyContent: "center" }}>
           <TextField
             variant="outlined"
             placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{
-              backgroundColor: "#fff",
-              borderRadius: 1,
-              width: "40%",
-              maxWidth: "500px",
-            }}
+            sx={{ backgroundColor: "#fff", borderRadius: 1, width: "40%", maxWidth: "500px" }}
           />
           <TextField
             select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             variant="outlined"
-            sx={{
-              backgroundColor: "#fff",
-              borderRadius: 1,
-              width: "20%",
-              maxWidth: "250px",
-            }}
+            sx={{ backgroundColor: "#fff", borderRadius: 1, width: "20%", maxWidth: "250px" }}
           >
             <MenuItem value="">All Categories</MenuItem>
             {categories.map((cat) => (
@@ -198,19 +186,13 @@ const HomePage = () => {
                     sx={{ objectFit: "cover" }}
                   />
                   <Box sx={{ p: 2 }}>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: "bold", color: "#333" }}
-                    >
+                    <Typography variant="h6" sx={{ fontWeight: "bold", color: "#333" }}>
                       {product.name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {product.description}
                     </Typography>
-                    <Typography
-                      variant="h6"
-                      sx={{ mt: 1, fontWeight: "bold", color: "#1a73e8" }}
-                    >
+                    <Typography variant="h6" sx={{ mt: 1, fontWeight: "bold", color: "#1a73e8" }}>
                       ₱{parseFloat(product.price).toFixed(2)}
                     </Typography>
                   </Box>
@@ -224,6 +206,7 @@ const HomePage = () => {
                         "&:hover": { backgroundColor: "#00224e" },
                       }}
                       startIcon={<AddShoppingCartIcon />}
+                      onClick={() => handleAddToCart(product)}
                     >
                       Add to Cart
                     </Button>
@@ -232,11 +215,7 @@ const HomePage = () => {
               </Grid>
             ))
           ) : (
-            <Typography
-              variant="h6"
-              color="text.secondary"
-              sx={{ textAlign: "center", width: "100%" }}
-            >
+            <Typography variant="h6" color="text.secondary" sx={{ textAlign: "center", width: "100%" }}>
               No products found.
             </Typography>
           )}
@@ -244,16 +223,7 @@ const HomePage = () => {
       </Container>
 
       {/* Footer */}
-      <Box
-        component="footer"
-        sx={{
-          backgroundColor: "#003580",
-          color: "#fff",
-          textAlign: "center",
-          py: 3,
-          mt: 6,
-        }}
-      >
+      <Box component="footer" sx={{ backgroundColor: "#003580", color: "#fff", textAlign: "center", py: 3, mt: 6 }}>
         <Typography variant="body2">
           &copy; {new Date().getFullYear()} My Business. All rights reserved.
         </Typography>
@@ -266,10 +236,7 @@ const HomePage = () => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
         </Alert>
       </Snackbar>

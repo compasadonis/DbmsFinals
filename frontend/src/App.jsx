@@ -8,6 +8,7 @@ import HomePage from "./HomePage";
 import CustomerCart from "./CustomerCart";
 import Register from "./Register";
 
+
 function App() {
   return (
     <Router>

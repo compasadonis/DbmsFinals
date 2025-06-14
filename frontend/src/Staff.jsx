@@ -1,122 +1,194 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  Container, Typography, Button, Box, Paper, List, ListItem, ListItemText, Divider,
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  AppBar,
+  Toolbar,
+  Button,
+  CircularProgress,
+  Snackbar,
+  Alert,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const Staff = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState("");
-  const [userRole, setRole] = useState("");
-  const [customers, setCustomers] = useState([]);
-  const [selectedOrders, setSelectedOrders] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "" });
 
-  // Authentication & Role Check
   useEffect(() => {
-    const storedUser = localStorage.getItem("username");
-    const storedRole = localStorage.getItem("role");
+    const username = localStorage.getItem("username");
+    const role = localStorage.getItem("role");
 
-    if (storedUser && storedRole) {
-      setUser(storedUser);
-      setRole(storedRole);
-
-      if (storedRole !== "Staff") {
-        navigate("/HomePage");
-      }
+    if (!username || role !== "staff") {
+      navigate("/");
     } else {
-      navigate("/login");
+      fetchTransactions();
     }
   }, [navigate]);
 
-  // Fetch customer list
-  useEffect(() => {
-    axios.get("http://localhost:5000/customers")
-      .then((res) => {
-        setCustomers(res.data);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch customers:", err);
+  const fetchTransactions = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/transactions");
+      setTransactions(response.data);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: "Failed to fetch transactions.",
+        severity: "error",
       });
-  }, []);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Fetch orders by customer
-  const handleCustomerSelect = (customerId) => {
-    setSelectedCustomer(customerId);
-    axios.get(`http://localhost:5000/orders/${customerId}`)
-      .then((res) => {
-        setSelectedOrders(res.data);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch orders:", err);
-        setSelectedOrders([]);
-      });
+  const formatDateTime = (dateString) => {
+    const options = { weekday: "long", hour: "numeric", minute: "numeric", hour12: true };
+    return new Date(dateString).toLocaleString("en-US", options);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/");
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h5" sx={{ color: "#d32f2f", mb: 2 }}>
-          Welcome {userRole} {user}
-        </Typography>
+    <Box
+      sx={{
+        backgroundColor: "#e8eaf6",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* AppBar */}
+      <AppBar position="sticky" sx={{ backgroundColor: "#003580" }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1, color: "#fff" }}>
+            Staff Dashboard
+          </Typography>
+          <Button color="inherit" onClick={handleLogout}>
+            Logout
+          </Button>
+        </Toolbar>
+      </AppBar>
 
-        <Typography variant="h6" gutterBottom>
-          Customer List
-        </Typography>
-        <List>
-          {customers.map((customer) => (
-            <ListItem
-              key={customer.customer_id}
-              button
-              onClick={() => handleCustomerSelect(customer.customer_id)}
-              sx={{ borderBottom: "1px solid #ddd" }}
-            >
-              <ListItemText
-                primary={customer.full_name}
-                secondary={`${customer.email} | ${customer.phone}`}
-              />
-            </ListItem>
-          ))}
-        </List>
-
-        {selectedCustomer && (
-          <>
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="h6" gutterBottom>
-              Orders for Customer ID: {selectedCustomer}
-            </Typography>
-            {selectedOrders.length === 0 ? (
-              <Typography>No orders found.</Typography>
-            ) : (
-              <List>
-                {selectedOrders.map((order) => (
-                  <ListItem key={order.order_id}>
-                    <ListItemText
-                      primary={`Order #${order.order_id}`}
-                      secondary={`Date: ${new Date(order.order_date).toLocaleString()} | Total: ₱${order.total_amount}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </>
-        )}
-
-        <Button
-          variant="contained"
-          color="error"
-          fullWidth
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
+      {/* Content */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          p: 4,
+        }}
+      >
+        <Paper
+          elevation={6}
+          sx={{
+            padding: 6,
+            width: "100%",
+            maxWidth: 800,
+            borderRadius: 3,
+            backgroundColor: "#fff",
+            boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
           }}
-          sx={{ mt: 3 }}
         >
-          Logout
-        </Button>
-      </Paper>
-    </Container>
+          <Typography
+            variant="h4"
+            align="center"
+            sx={{ color: "#003580", fontWeight: "bold", mb: 3 }}
+          >
+            Transactions Table
+          </Typography>
+          <Typography
+            variant="body1"
+            align="center"
+            sx={{ color: "#555", mb: 4 }}
+          >
+            View recent transactions below.
+          </Typography>
+
+          {loading ? (
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                height: "200px",
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          ) : transactions.length > 0 ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>Transaction ID</strong></TableCell>
+                    <TableCell><strong>Action Type</strong></TableCell>
+                    <TableCell><strong>Transaction Date</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {transactions.map((transaction) => (
+                    <TableRow key={transaction.transaction_id}>
+                      <TableCell>{transaction.transaction_id}</TableCell>
+                      <TableCell>{transaction.action_type}</TableCell>
+                      <TableCell>{formatDateTime(transaction.transaction_date)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Typography align="center" sx={{ color: "#777", mt: 2 }}>
+              No transactions found.
+            </Typography>
+          )}
+        </Paper>
+      </Box>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Footer */}
+      <Box
+        component="footer"
+        sx={{
+          backgroundColor: "#003580",
+          color: "#fff",
+          textAlign: "center",
+          padding: 2,
+        }}
+      >
+        <Typography variant="body2">
+          &copy; {new Date().getFullYear()} My Business. All rights reserved.
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 

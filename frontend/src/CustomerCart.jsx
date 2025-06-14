@@ -5,6 +5,7 @@ import {
   Grid,
   Card,
   CardMedia,
+  CardContent,
   CardActions,
   Container,
   Button,
@@ -13,141 +14,306 @@ import {
   IconButton,
   Snackbar,
   Alert,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Divider,
 } from "@mui/material";
-import LogoutIcon from "@mui/icons-material/Logout";
-import HomeIcon from "@mui/icons-material/Home";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const CustomerCartPage = () => {
+const CustomerCart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "" });
   const navigate = useNavigate();
-  const username = localStorage.getItem("username");
 
+  // Fetch cart items
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token || !username) {
-      setSnackbar({ open: true, message: "Please log in to access the cart.", severity: "warning" });
-      navigate("/");
-    } else {
-      fetchCartItems();
-    }
-  }, [navigate, username]);
+    const fetchCartItems = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/api/cart/1`); // Default customer ID
+        setCartItems(res.data);
+      } catch (err) {
+        console.error("Error fetching cart items:", err);
+        setSnackbar({
+          open: true,
+          message: "Failed to load cart items",
+          severity: "error",
+        });
+      }
+    };
 
-  const fetchCartItems = async () => {
+    fetchCartItems();
+  }, []);
+
+  // Calculate total price
+  const calculateTotal = () => {
+    return cartItems.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    ).toFixed(2);
+  };
+
+  // Update quantity
+  const handleQuantityChange = async (cartId, newQuantity) => {
+    if (newQuantity < 1) return;
+
     try {
-      const res = await axios.get(`http://localhost:5000/api/cart/${username}`);
-      setCartItems(res.data);
+      await axios.put(`http://localhost:5000/api/cart/${cartId}`, { quantity: newQuantity });
+
+      // Log the transaction
+      await axios.post("http://localhost:5000/api/transactions", {
+        product_id: cartItems.find(item => item.cart_id === cartId).product_id,
+        action_type: "Pending",
+        quantity: newQuantity,
+      });
+
+      setCartItems(cartItems.map(item =>
+        item.cart_id === cartId ? { ...item, quantity: newQuantity } : item
+      ));
     } catch (err) {
-      console.error("Error fetching cart:", err);
-      setSnackbar({ open: true, message: "Failed to fetch cart items.", severity: "error" });
+      console.error("Error updating quantity:", err);
+      setSnackbar({
+        open: true,
+        message: "Failed to update quantity",
+        severity: "error",
+      });
     }
   };
 
-  const handleRemoveItem = async (itemId) => {
+  // Remove item from cart
+  const handleRemoveItem = async (cartId) => {
     try {
-      await axios.delete(`http://localhost:5000/api/cart/${username}/${itemId}`);
-      setCartItems((prev) => prev.filter((item) => item.id !== itemId));
-      setSnackbar({ open: true, message: "Item removed from cart.", severity: "success" });
+      await axios.delete(`http://localhost:5000/api/cart/${cartId}`);
+      setCartItems(cartItems.filter(item => item.cart_id !== cartId));
+      setSnackbar({
+        open: true,
+        message: "Item removed from cart",
+        severity: "success",
+      });
     } catch (err) {
       console.error("Error removing item:", err);
-      setSnackbar({ open: true, message: "Failed to remove item.", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Failed to remove item",
+        severity: "error",
+      });
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    setSnackbar({ open: true, message: "You have been logged out.", severity: "success" });
-    navigate("/");
+  // Checkout
+  const handlePlaceOrder = async () => {
+    try {
+      const orderRes = await axios.post("http://localhost:5000/api/orders", {
+        customer_id: 1, // Default customer ID
+        total_amount: calculateTotal(),
+      });
+
+      // Add order items
+      await Promise.all(
+        cartItems.map(item =>
+          axios.post("http://localhost:5000/api/order-items", {
+            order_id: orderRes.data.order_id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: item.price,
+          })
+        )
+      );
+
+      // Log the transaction
+      await axios.post("http://localhost:5000/api/transactions", {
+        product_id: null, // Null for bulk order
+        action_type: "Completed",
+        quantity: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+      });
+
+      // Clear the cart
+      await axios.delete(`http://localhost:5000/api/cart/clear/1`);
+      setSnackbar({
+        open: true,
+        message: "Order placed successfully!",
+        severity: "success",
+      });
+      setCartItems([]);
+    } catch (err) {
+      console.error("Error during checkout:", err);
+      setSnackbar({
+        open: true,
+        message: "Checkout failed",
+        severity: "error",
+      });
+    }
   };
 
   return (
-    <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
+    <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "100vh", width: "100%", display: "flex", flexDirection: "column" }}>
       <AppBar position="sticky" sx={{ backgroundColor: "#003580" }}>
-        <Toolbar sx={{ justifyContent: "space-between" }}>
-          <Typography variant="h6" sx={{ color: "#fff", fontWeight: "bold" }}>
-            {username}'s Cart
-          </Typography>
-          <Box>
-            <IconButton sx={{ color: "#fff" }} onClick={() => navigate("/homepage")}>
-              <HomeIcon />
+        <Toolbar
+          sx={{
+            maxWidth: "1400px",
+            width: "100%",
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <IconButton sx={{ color: "#fff", mr: 2 }} onClick={() => navigate("/homepage")}>
+              <ArrowBackIcon />
             </IconButton>
-            <IconButton sx={{ color: "#fff" }} onClick={handleLogout}>
-              <LogoutIcon />
-            </IconButton>
+            <Typography variant="h6" sx={{ color: "#fff", fontWeight: "bold" }}>
+              YOUR SHOPPING CART
+            </Typography>
           </Box>
+          <Typography variant="h6" sx={{ color: "#fff", fontWeight: "bold" }}>
+            {cartItems.length} ITEMS
+          </Typography>
         </Toolbar>
       </AppBar>
 
-      {/* Main Content */}
-      <Container sx={{ flexGrow: 1, py: 6 }}>
-        <Grid container spacing={4}>
-          {cartItems.length > 0 ? (
-            cartItems.map((item) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
-                <Card sx={{ borderRadius: 4, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)" }}>
-                  <CardMedia
-                    component="img"
-                    height="200"
-                    image={
-                      item.product_image
-                        ? `data:image/jpeg;base64,${item.product_image}`
-                        : "https://via.placeholder.com/150"
-                    }
-                    alt={item.name}
-                  />
-                  <Box sx={{ p: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                      {item.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {item.description}
-                    </Typography>
-                    <Typography sx={{ mt: 1, fontWeight: "bold" }}>
-                      ₱{parseFloat(item.price).toFixed(2)} × {item.quantity}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total: ₱{(item.price * item.quantity).toFixed(2)}
-                    </Typography>
+      <Container sx={{ maxWidth: "1400px", width: "100%", flexGrow: 1, paddingY: 4 }}>
+        {cartItems.length > 0 ? (
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={8}>
+              <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 3 }}>
+                <Table>
+                  <TableHead sx={{ backgroundColor: "#f0f0f0" }}>
+                    <TableRow>
+                      <TableCell>PRODUCT</TableCell>
+                      <TableCell align="center">PRICE</TableCell>
+                      <TableCell align="center">QUANTITY</TableCell>
+                      <TableCell align="center">TOTAL</TableCell>
+                      <TableCell align="center">ACTION</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {cartItems.map((item) => (
+                      <TableRow key={item.cart_id}>
+                        <TableCell>
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <CardMedia
+                              component="img"
+                              image={item.product_image ? `data:image/jpeg;base64,${item.product_image}` : "https://via.placeholder.com/150"}
+                              alt={item.name}
+                              sx={{ width: 80, height: 80, objectFit: "cover", mr: 2 }}
+                            />
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                                {item.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {item.description}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center">₱{parseFloat(item.price).toFixed(2)}</TableCell>
+                        <TableCell align="center">
+                          <TextField
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => handleQuantityChange(item.cart_id, parseInt(e.target.value))}
+                            inputProps={{ min: 1 }}
+                            sx={{ width: 70 }}
+                          />
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                          ₱{(item.price * item.quantity).toFixed(2)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton color="error" onClick={() => handleRemoveItem(item.cart_id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <Card sx={{ borderRadius: 2, boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>CHECK OUT</Typography>
+                  <Divider sx={{ my: 2 }} />
+
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                    <Typography>Subtotal:</Typography>
+                    <Typography>₱{calculateTotal()}</Typography>
                   </Box>
-                  <CardActions>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      fullWidth
-                      onClick={() => handleRemoveItem(item.id)}
-                    >
-                      Remove
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))
-          ) : (
-            <Typography variant="h6" color="text.secondary" sx={{ textAlign: "center", width: "100%" }}>
-              Your cart is empty.
+
+                  <Divider sx={{ my: 2 }} />
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="large"
+                    startIcon={<ShoppingCartCheckoutIcon />}
+                    sx={{
+                      backgroundColor: "#003580",
+                      color: "#fff",
+                      py: 1.5,
+                      "&:hover": { backgroundColor: "#00224e" },
+                    }}
+                    onClick={handlePlaceOrder}
+                  >
+                    PLACE ORDER
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        ) : (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "60vh",
+              textAlign: "center",
+            }}
+          >
+            <ShoppingCartCheckoutIcon sx={{ fontSize: 80, color: "text.secondary", mb: 2 }} />
+            <Typography variant="h5" sx={{ fontWeight: "bold", color: "text.secondary", mb: 1 }}>
+              Your cart is empty
             </Typography>
-          )}
-        </Grid>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              Looks like you haven't added any items to your cart yet
+            </Typography>
+            <Button
+              variant="contained"
+              sx={{
+                backgroundColor: "#003580",
+                color: "#fff",
+                "&:hover": { backgroundColor: "#00224e" },
+              }}
+              onClick={() => navigate("/homepage")}
+            >
+              CONTINUE SHOPPING
+            </Button>
+          </Box>
+        )}
       </Container>
 
-      {/* Footer */}
-      <Box sx={{ backgroundColor: "#003580", color: "#fff", textAlign: "center", py: 3 }}>
-        <Typography variant="body2">
-          &copy; {new Date().getFullYear()} My Business. All rights reserved.
-        </Typography>
-      </Box>
-
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Box>
   );
