@@ -1,79 +1,61 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import {
-  Box,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  Button,
-  Snackbar,
-  Alert,
-} from "@mui/material";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
-const Testing = () => {
-  const [products, setProducts] = useState([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
-
-  const fetchProducts = async () => {
-    try {
-      const response = await axios.get("http://localhost:5000/api/products");
-      setProducts(response.data);
-    } catch (error) {
-      console.error("Fetch error", error);
-    }
-  };
-
-  const reduceQuantity = async (product_id) => {
-    try {
-      const response = await axios.put(`http://localhost:5000/api/products/reduce/${product_id}`);
-      setSnackbar({ open: true, message: response.data.message, severity: "success" });
-      fetchProducts(); // Refresh after update
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Error reducing quantity.",
-        severity: "error",
-      });
-    }
-  };
+const TransactionsTable = () => {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProducts();
+    axios.get('/api/transactions')
+      .then(res => {
+        setTransactions(res.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching transactions:", err);
+        setLoading(false);
+      });
   }, []);
 
+  if (loading) return <p>Loading transactions...</p>;
+
   return (
-    <Box p={4}>
-      <Typography variant="h4" gutterBottom>Product Inventory</Typography>
-      <Grid container spacing={2}>
-        {products.map((product) => (
-          <Grid item xs={12} sm={6} md={4} key={product.product_id}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6">{product.name}</Typography>
-                <Typography>Quantity: {product.quantity}</Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => reduceQuantity(product.product_id)}
-                  disabled={product.quantity <= 0}
-                  style={{ marginTop: 10 }}
-                >
-                  Reduce Quantity
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={3000} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })}>
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
-      </Snackbar>
-    </Box>
+    <div className="p-4">
+      <h2 className="text-xl font-semibold mb-4">Transaction Records</h2>
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white shadow-md rounded border border-gray-200">
+          <thead>
+            <tr className="bg-gray-100 text-gray-700 text-left">
+              <th className="py-2 px-4">Transaction ID</th>
+              <th className="py-2 px-4">Customer</th>
+              <th className="py-2 px-4">Order ID</th>
+              <th className="py-2 px-4">Transaction Type</th>
+              <th className="py-2 px-4">Amount</th>
+              <th className="py-2 px-4">Status</th>
+              <th className="py-2 px-4">Payment Method</th>
+              <th className="py-2 px-4">Payment Status</th>
+              <th className="py-2 px-4">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map(tx => (
+              <tr key={tx.transaction_id} className="border-t hover:bg-gray-50">
+                <td className="py-2 px-4">{tx.transaction_id}</td>
+                <td className="py-2 px-4">{tx.customer_name}</td>
+                <td className="py-2 px-4">{tx.order_id}</td>
+                <td className="py-2 px-4">{tx.transaction_type}</td>
+                <td className="py-2 px-4">₱{tx.amount.toFixed(2)}</td>
+                <td className="py-2 px-4">{tx.transaction_status}</td>
+                <td className="py-2 px-4">{tx.payment_method}</td>
+                <td className="py-2 px-4">{tx.payment_status}</td>
+                <td className="py-2 px-4">{new Date(tx.transaction_date).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
 
-export default Testing;
+export default TransactionsTable;

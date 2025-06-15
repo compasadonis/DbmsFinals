@@ -261,15 +261,14 @@ app.get("/api/cart/:customer_id", (req, res) => {
   });
 });
 
-// Update cart item
-app.put("/api/cart/:cart_id", (req, res) => {
-  const { cart_id } = req.params;
+// Update the quantity of a cart item
+app.put("/api/cart/update-quantity/:cart_id", (req, res) => {
+  const cartId = req.params.cart_id;
   const { quantity } = req.body;
-  if (!quantity || quantity < 1)
-    return res.status(400).json({ message: "Valid quantity is required" });
-  db.query("UPDATE cart SET quantity=? WHERE cart_id=?", [quantity, cart_id], err => {
-    if (err) return res.status(500).json({ message: "Error updating cart item", error: err });
-    res.json({ message: "Cart item updated successfully" });
+  const sql = "UPDATE cart SET quantity = ? WHERE cart_id = ?";
+  db.query(sql, [quantity, cartId], (err, result) => {
+    if (err) return res.status(500).json({ message: "Error updating cart quantity", error: err });
+    res.json({ message: "Cart quantity updated" });
   });
 });
 
@@ -317,57 +316,198 @@ app.post("/api/order-items", (req, res) => {
 
 // Add a transaction
 app.post("/api/transactions", (req, res) => {
-  const { product_id, action_type, quantity } = req.body;
-  if (!action_type || (action_type !== "Completed" && action_type !== "Pending" && action_type !== "Refunded")) {
-    return res.status(400).json({ message: "Invalid action type" });
+  const { order_id, payment_id, transaction_type, status, amount } = req.body;
+  
+  // Validate required fields
+  if (!order_id || !payment_id || !transaction_type || !status || !amount) {
+    return res.status(400).json({ message: "Missing required fields" });
   }
 
-  if (!quantity || quantity < 1) {
-    return res.status(400).json({ message: "Valid quantity is required" });
+  // Validate transaction type
+  const validTypes = ['Purchase', 'Refund', 'Void', 'Adjustment'];
+  if (!validTypes.includes(transaction_type)) {
+    return res.status(400).json({ message: "Invalid transaction type" });
   }
 
-  const sql = "INSERT INTO transactions (product_id, action_type, quantity, transaction_date) VALUES (?, ?, ?, NOW())";
-  db.query(sql, [product_id, action_type, quantity], (err, result) => {
-    if (err) return res.status(500).json({ message: "Error logging transaction", error: err });
-    res.status(201).json({ message: "Transaction logged successfully", transaction_id: result.insertId });
+  // Validate status
+  const validStatuses = ['Pending', 'Completed', 'Failed', 'Reversed'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: "Invalid status" });
+  }
+
+  // Validate amount
+  if (isNaN(amount) || amount === 0) {
+    return res.status(400).json({ message: "Amount must be a non-zero number" });
+  }
+
+  const sql = `
+    INSERT INTO transactions 
+    (order_id, payment_id, transaction_type, status, amount, transaction_date, last_updated) 
+    VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+  `;
+  
+  db.query(sql, [order_id, payment_id, transaction_type, status, amount], (err, result) => {
+    if (err) return res.status(500).json({ message: "Error creating transaction", error: err });
+    res.status(201).json({ 
+      message: "Transaction created successfully", 
+      transaction_id: result.insertId 
+    });
   });
 });
 
 // Get all transactions
+
 app.get("/api/transactions", (req, res) => {
-  const sql = "SELECT * FROM transactions";
+  const sql = `
+    SELECT t.transaction_id, t.transaction_type, t.amount, t.transaction_date,
+           p.payment_method, o.status
+    FROM transactions t
+    LEFT JOIN payments p ON t.payment_id = p.payment_id
+    LEFT JOIN orders o ON t.order_id = o.order_id
+    ORDER BY t.transaction_date ASC
+  `;
   db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ message: "Error fetching transactions", error: err });
+    if (err) return res.status(500).json(err);
     res.json(results);
   });
 });
 
-// Get transactions by product
-app.get("/api/transactions/product/:product_id", (req, res) => {
-  const { product_id } = req.params;
-  const sql = "SELECT * FROM transactions WHERE product_id = ?";
-  db.query(sql, [product_id], (err, results) => {
-    if (err) return res.status(500).json({ message: "Error fetching product transactions", error: err });
+// Get transaction by ID
+app.get("/api/transactions/:transaction_id", (req, res) => {
+  const { transaction_id } = req.params;
+  const sql = `
+    SELECT t.*, o.order_number, p.payment_method 
+    FROM transactions t
+    LEFT JOIN orders o ON t.order_id = o.order_id
+    LEFT JOIN payments p ON t.payment_id = p.payment_id
+    WHERE t.transaction_id = ?
+  `;
+  
+  db.query(sql, [transaction_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching transaction", error: err });
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+    res.json(results[0]);
+  });
+});
+
+// Get transactions by order
+app.get("/api/transactions/order/:order_id", (req, res) => {
+  const { order_id } = req.params;
+  const sql = `
+    SELECT t.*, o.order_number, p.payment_method 
+    FROM transactions t
+    LEFT JOIN orders o ON t.order_id = o.order_id
+    LEFT JOIN payments p ON t.payment_id = p.payment_id
+    WHERE t.order_id = ?
+    ORDER BY t.transaction_date DESC
+  `;
+  
+  db.query(sql, [order_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching order transactions", error: err });
     res.json(results);
   });
 });
 
-// Get transactions by action type
-app.get("/api/transactions/type/:action_type", (req, res) => {
-  const { action_type } = req.params;
-  const sql = "SELECT * FROM transactions WHERE action_type = ?";
-  db.query(sql, [action_type], (err, results) => {
+// Get transactions by payment
+app.get("/api/transactions/payment/:payment_id", (req, res) => {
+  const { payment_id } = req.params;
+  const sql = `
+    SELECT t.*, o.order_number, p.payment_method 
+    FROM transactions t
+    LEFT JOIN orders o ON t.order_id = o.order_id
+    LEFT JOIN payments p ON t.payment_id = p.payment_id
+    WHERE t.payment_id = ?
+    ORDER BY t.transaction_date DESC
+  `;
+  
+  db.query(sql, [payment_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching payment transactions", error: err });
+    res.json(results);
+  });
+});
+
+// Get transactions by type
+app.get("/api/transactions/type/:transaction_type", (req, res) => {
+  const { transaction_type } = req.params;
+  const sql = `
+    SELECT t.*, o.order_number, p.payment_method 
+    FROM transactions t
+    LEFT JOIN orders o ON t.order_id = o.order_id
+    LEFT JOIN payments p ON t.payment_id = p.payment_id
+    WHERE t.transaction_type = ?
+    ORDER BY t.transaction_date DESC
+  `;
+  
+  db.query(sql, [transaction_type], (err, results) => {
     if (err) return res.status(500).json({ message: "Error fetching transactions by type", error: err });
     res.json(results);
   });
 });
 
-// Delete a transaction
+// Update a transaction
+app.put("/api/transactions/:transaction_id", (req, res) => {
+  const { transaction_id } = req.params;
+  const { status, amount } = req.body;
+
+  // Validate status if provided
+  if (status) {
+    const validStatuses = ['Pending', 'Completed', 'Failed', 'Reversed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+  }
+
+  // Validate amount if provided
+  if (amount && (isNaN(amount) || amount === 0)) {
+    return res.status(400).json({ message: "Amount must be a non-zero number" });
+  }
+
+  const updates = [];
+  const values = [];
+
+  if (status) {
+    updates.push("status = ?");
+    values.push(status);
+  }
+
+  if (amount) {
+    updates.push("amount = ?");
+    values.push(amount);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ message: "No valid fields to update" });
+  }
+
+  values.push(transaction_id);
+
+  const sql = `
+    UPDATE transactions 
+    SET ${updates.join(", ")}, last_updated = NOW()
+    WHERE transaction_id = ?
+  `;
+  
+  db.query(sql, values, (err, result) => {
+    if (err) return res.status(500).json({ message: "Error updating transaction", error: err });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+    res.json({ message: "Transaction updated successfully" });
+  });
+});
+
+// Delete a transaction (use with caution)
 app.delete("/api/transactions/:transaction_id", (req, res) => {
   const { transaction_id } = req.params;
   const sql = "DELETE FROM transactions WHERE transaction_id = ?";
-  db.query(sql, [transaction_id], (err) => {
+  
+  db.query(sql, [transaction_id], (err, result) => {
     if (err) return res.status(500).json({ message: "Error deleting transaction", error: err });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
     res.json({ message: "Transaction deleted successfully" });
   });
 });
@@ -445,6 +585,22 @@ app.get("/api/orders", (req, res) => {
     res.json(formattedResults);
   });
 });
+
+app.put("/api/products/adjust/:product_id", (req, res) => {
+  const { product_id } = req.params;
+  const { quantity } = req.body;
+
+  if (!quantity || quantity < 0) {
+    return res.status(400).json({ message: "Invalid quantity provided." });
+  }
+
+  const sql = "UPDATE products SET quantity = ? WHERE product_id = ?";
+  db.query(sql, [quantity, product_id], (err) => {
+    if (err) return res.status(500).json({ message: "Error updating product quantity.", error: err });
+    res.json({ message: "Product quantity successfully adjusted." });
+  });
+});
+
 
 // Start server
 const PORT = process.env.PORT || 5000;
